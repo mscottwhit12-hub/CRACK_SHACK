@@ -8,8 +8,8 @@ A 3D layout planner for the shed woodshop: the 15′ 5″ × 27′ 4″ framed i
 Every push builds a Windows `.exe` with GitHub Actions.
 
 - **Latest build from `main`:** the [`latest` release](../../releases/tag/latest).
-  - `CrackShack-1.0.0-portable.exe` runs without installing.
-  - `CrackShack-1.0.0-setup.exe` installs it.
+  - `CrackShack-1.1.0-portable.exe` runs without installing.
+  - `CrackShack-1.1.0-setup.exe` installs it.
 - **Builds from other branches:** open the run in the **Actions** tab and download the `CrackShack-windows` artifact.
 
 The exe is not code-signed, so Windows SmartScreen may warn on first launch. Choose **More info → Run anyway**.
@@ -28,4 +28,9 @@ npm run dist   # build the exes into dist/
 - `main.js` is the Electron desktop wrapper.
 - `.github/workflows/build-exe.yml` builds and publishes the exes.
 
-Layouts and corner-desk sizes are saved on the computer between sessions.
+## Layouts
+
+- The app opens with the default layout from the hand-drawn Nov 2026 floor plan, including the corner desk at 48″ × 30″ and 48″ × 18″.
+- **Save layout…** writes the current layout, including desk sizes, to a `.json` file. **Open layout…** loads one back.
+- **Default layout** returns to the floor-plan arrangement.
+- The last layout you used is also remembered between sessions.

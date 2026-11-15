@@ -113,6 +113,8 @@
   button:hover { border-color: var(--accent); }
   button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .msg { font-size: 13px; color: var(--accent); padding: 0 4px; order: 9; }
+  .msg.bad { color: var(--est); }
   .hint { color: var(--muted); font-size: 13px; padding: 0 2px; pointer-events: none; }
   .sel {
     position: absolute; top: 12px; right: 16px;
@@ -210,6 +212,10 @@
   <div class="hint">Drag a machine to move it; press R to rotate it. Drag empty space to orbit. Scroll or pinch to zoom.</div>
   <div class="row" role="group" aria-label="Machines" id="mrow">
     <span class="lbl">Machines</span>
+  </div>
+  <div class="row" role="group" aria-label="Layout files" id="frow">
+    <span class="lbl">Layout</span>
+    <span class="msg" id="file-msg" role="status" hidden></span>
   </div>
   <div class="row" role="group" aria-label="Views">
     <span class="lbl">View</span>
@@ -918,7 +924,7 @@ function buildMachines(THREE) {
             ['B length', p.lb + '″'], ['B depth', p.db + '″'], ['B height', p.hb + '″']];
   }
   machine('desk', 'Corner desk', 'Generic L-shaped corner desk', deskDims,
-    'Lengths are measured along the back edge, corner included. Edit the sizes below.',
+    'Lengths run along the wall, corner included. Default sizes follow your floor plan; edit them below.',
     function (g, p) {
       var TOPC = 0xcaa476, LEG = 0x2c2f31;
       B(g, TOPC, 0, p.la, p.ha - 1, p.ha, 0, p.da);                 // piece A top
@@ -931,7 +937,7 @@ function buildMachines(THREE) {
       leg(p.db - 1.5, p.da - 1.5, Math.min(p.ha, p.hb));
       B(g, LEG, 2.4, p.la - 2.4, p.ha - 12, p.ha - 1, 0.6, 1.2);    // modesty panels
       B(g, LEG, 0.6, 1.2, p.hb - 12, p.hb - 1, 2.4, p.lb - 2.4);
-    }, { la: 60, da: 24, ha: 30, lb: 48, db: 24, hb: 30 });
+    }, { la: 48, da: 30, ha: 30, lb: 48, db: 18, hb: 30 });
 
   return list;
 }
@@ -1086,21 +1092,23 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   /* ---------- machine layout: select, drag on the floor, rotate, clearances ---------- */
   var HW = shed.size.W / 2, HL = shed.size.L / 2;
   // Starting layout. r = quarter turns. Local +z (front) faces the room.
+  // Default layout: the hand-drawn "Whitcomb workshop, Nov 2026" plan, scaled to the measured interior.
+  // Double doors at -z, entry-door wall at -x, two-window wall at +x. r = quarter turns.
   var DEFAULTS = {
-    dust:    { x: 73.75, z: 151,  r: 0 },
-    bench:   { x: 79.25, z: 40,   r: -1 },
-    jointer: { x: 76,    z: -40,  r: -1 },
-    saw:     { x: -34,   z: -20,  r: 2 },
-    outfeed: { x: -34,   z: 7,    r: 2 },
-    planer:  { x: -79.5, z: 139,  r: 0 },
-    shaper:  { x: 75,    z: -130, r: 0 },
-    sander:  { x: 30,    z: 150,  r: 0 },
-    drill:   { x: 3,     z: 151,  r: 2 },
-    miter:   { x: -72.5, z: -112, r: 1 },
-    desk:    { x: 92.5,  z: 72,   r: 3 }
+    drill:   { x: -79,   z: -146.5, r: 1 },
+    dust:    { x: 81.75, z: -147,   r: 1 },
+    bench:   { x: 0.5,   z: -108,   r: 0 },
+    miter:   { x: -72.5, z: -40,    r: 1 },
+    saw:     { x: -16.5, z: 22,     r: 0 },
+    outfeed: { x: -16.5, z: -5,     r: 0 },
+    planer:  { x: 80,    z: -23,    r: 0 },
+    shaper:  { x: 77.25, z: 31,     r: 3 },
+    sander:  { x: -80.5, z: 38,     r: 1 },
+    jointer: { x: -1,    z: 94,     r: 0 },
+    desk:    { x: 92.5,  z: 164,    r: 2 }
   };
-  var DESK0 = { la: 60, da: 24, ha: 30, lb: 48, db: 24, hb: 30 };
-  var KEY = 'shed-layout-v3';
+  var DESK0 = { la: 48, da: 30, ha: 30, lb: 48, db: 18, hb: 30 };
+  var KEY = 'shed-layout-v4';
   var byId = {};
   machines.forEach(function (g) { byId[g.userData.machine.id] = g; });
 
@@ -1124,14 +1132,30 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (b.min.z < -HL) dz = -HL - b.min.z; else if (b.max.z > HL) dz = HL - b.max.z;
     g.position.x += dx; g.position.z += dz;
   }
-  function save() {
+  function collect() {
     var out = {};
     machines.forEach(function (g) {
       var id = g.userData.machine.id;
       out[id] = { x: g.position.x, z: g.position.z, r: g.userData.r };
       if (g.userData.params) out[id].p = g.userData.params;
     });
-    try { localStorage.setItem(KEY, JSON.stringify(out)); } catch (e) {}
+    return out;
+  }
+  function save() {
+    try { localStorage.setItem(KEY, JSON.stringify(collect())); } catch (e) {}
+  }
+  // Apply a saved layout; pieces missing from it go to the default spot.
+  function applyLayout(saved) {
+    machines.forEach(function (g) {
+      var id = g.userData.machine.id, sv = saved && saved[id];
+      if (g.userData.params) {
+        g.userData.params = JSON.parse(JSON.stringify(sv && sv.p ? sv.p : DESK0));
+        rebuildMachine(g);
+      }
+      place(g, sv && isFinite(sv.x) && isFinite(sv.z) ? { x: +sv.x, z: +sv.z, r: +sv.r || 0 } : DEFAULTS[id]);
+    });
+    save();
+    if (selected) select(selected);
   }
   function load() {
     var saved = null;
@@ -1141,6 +1165,51 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       if (g.userData.params && sv && sv.p) { g.userData.params = sv.p; rebuildMachine(g); }
       place(g, sv || DEFAULTS[id]);
     });
+  }
+  // ----- layout files -----
+  function flash(msg, bad) {
+    var el = document.getElementById('file-msg');
+    el.textContent = msg; el.classList.toggle('bad', !!bad); el.hidden = false;
+    clearTimeout(flash.t); flash.t = setTimeout(function () { el.hidden = true; }, 5000);
+  }
+  async function saveFile() {
+    var data = JSON.stringify({ app: 'crack-shack-layout', version: 1, savedAt: new Date().toISOString(), machines: collect() }, null, 2);
+    var name = 'shop-layout-' + new Date().toISOString().slice(0, 10) + '.json';
+    try {
+      if (window.showSaveFilePicker) {
+        var h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'Shop layout', accept: { 'application/json': ['.json'] } }] });
+        var w = await h.createWritable(); await w.write(data); await w.close();
+        flash('Saved ' + h.name + '.');
+        return;
+      }
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+    }
+    try {
+      var a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+      a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+      flash('Saving ' + name + '.');
+    } catch (e) {
+      flash('This window can\'t save files. Use the desktop app to save layouts.', true);
+    }
+  }
+  function openFile(file) {
+    var rd = new FileReader();
+    rd.onload = function () {
+      var obj;
+      try { obj = JSON.parse(rd.result); } catch (e) { obj = null; }
+      var m = obj && (obj.machines || obj);
+      if (!m || typeof m !== 'object' || !machines.some(function (g) { return m[g.userData.machine.id]; })) {
+        flash('That file isn\'t a shop layout. Pick a .json saved from this app.', true);
+        return;
+      }
+      applyLayout(m);
+      flash('Opened ' + file.name + '.');
+    };
+    rd.onerror = function () { flash('Couldn\'t read that file.', true); };
+    rd.readAsText(file);
   }
   function rebuildMachine(g) {
     g.userData.rebuild();
@@ -1246,17 +1315,15 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     });
     mrow.appendChild(b);
   });
-  var reset = document.createElement('button');
-  reset.type = 'button'; reset.textContent = 'Reset layout';
-  reset.addEventListener('click', function () {
-    machines.forEach(function (g) {
-      if (g.userData.params) { g.userData.params = JSON.parse(JSON.stringify(DESK0)); rebuildMachine(g); }
-      place(g, DEFAULTS[g.userData.machine.id]);
-    });
-    if (selected) select(selected);
-    save(); updatePanel();
-  });
-  mrow.appendChild(reset);
+  var frow = document.getElementById('frow');
+  function fbtn(text, fn) { var b = document.createElement('button'); b.type = 'button'; b.textContent = text; b.addEventListener('click', fn); frow.appendChild(b); return b; }
+  var picker = document.createElement('input');
+  picker.type = 'file'; picker.accept = '.json,application/json'; picker.id = 'layout-file'; picker.hidden = true;
+  picker.addEventListener('change', function () { if (picker.files[0]) openFile(picker.files[0]); picker.value = ''; });
+  frow.appendChild(picker);
+  fbtn('Save layout…', saveFile);
+  fbtn('Open layout…', function () { picker.click(); });
+  fbtn('Default layout', function () { applyLayout(null); flash('Back to the floor-plan layout.'); });
   document.getElementById('sel-close').addEventListener('click', function () { select(null); });
   document.getElementById('sel-rot').addEventListener('click', rotateSel);
   window.addEventListener('keydown', function (e) {
