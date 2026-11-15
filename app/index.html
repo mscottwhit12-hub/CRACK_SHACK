@@ -103,6 +103,36 @@
   .menu dt { color: var(--muted); }
   .menu dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
   .menu p { margin: 0; color: var(--muted); font-size: 13px; }
+  .wd {
+    position: absolute; top: 64px; left: 16px; bottom: 40px; width: min(470px, calc(100% - 32px)); overflow: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px 16px; z-index: 3;
+    border-left: 4px solid #d1495b;
+  }
+  .wd[hidden] { display: none; }
+  .wd-head { display: flex; align-items: center; gap: 6px; position: sticky; top: -10px; background: var(--panel); padding: 4px 0 6px; z-index: 1; }
+  .wd-head h2 { flex: 1; margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 22px; text-transform: uppercase; letter-spacing: .02em; }
+  .wd-head button { border: 1px solid var(--line); }
+  .wd h3 { margin: 14px 0 6px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .wd dl { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 3px 12px; font-size: 14px; }
+  .wd dt { color: var(--muted); } .wd dd { margin: 0; font-weight: 600; text-align: right; font-variant-numeric: tabular-nums; }
+  .wd .sub { margin: 4px 0; color: var(--muted); font-size: 13px; }
+  .wd .warnb { margin: 4px 0 6px; border: 2px solid var(--est); color: var(--est); font-weight: 600; padding: 6px 10px; border-radius: 6px; font-size: 14px; }
+  .wd .warns { margin: 6px 0; padding-left: 18px; color: var(--est); font-size: 13px; }
+  .wd .notes { padding-left: 18px; font-size: 13px; color: var(--ink); } .wd .notes li { margin: 4px 0; }
+  .legs { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 10px; align-items: center; font-size: 14px; font-variant-numeric: tabular-nums; }
+  .bar2 { height: 10px; background: var(--bg); border-radius: 5px; overflow: hidden; display: block; }
+  .bar2 i { display: block; height: 100%; background: var(--accent); } .bar2 i.hot { background: var(--est); }
+  .tblw { overflow-x: auto; }
+  .wd table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  .wd th { text-align: left; color: var(--muted); font-weight: 600; padding: 4px; border-bottom: 1px solid var(--line); }
+  .wd td { padding: 4px; border-bottom: 1px solid var(--line); vertical-align: middle; font-variant-numeric: tabular-nums; }
+  .wd tr[data-c] { cursor: pointer; } .wd tr[data-c]:hover td { background: var(--bg); }
+  .wd td input { min-width: 120px; }
+  .wd td select { width: auto; padding: 4px; }
+  .wd .tiny { display: block; color: var(--muted); font-size: 11px; white-space: nowrap; }
+  .wd .sw { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .addc { display: flex; gap: 6px; margin-top: 8px; } .addc button { border: 1px solid var(--line); font-size: 13px; }
+  .svgw { color: var(--ink); overflow-x: auto; }
   .hint {
     position: absolute; left: 16px; bottom: 12px; color: var(--muted); font-size: 13px;
     pointer-events: none; text-shadow: 0 0 6px var(--bg);
@@ -141,7 +171,13 @@
   .sel .acts { display: flex; gap: 6px; }
   .sel .acts button { border: 1px solid var(--line); }
   .params { display: grid; grid-template-columns: 1fr 72px auto; gap: 6px 8px; align-items: center; }
-  .params[hidden] { display: none; }
+  .params[hidden], .circ[hidden] { display: none; }
+  .circ { display: grid; grid-template-columns: auto 1fr; gap: 8px; align-items: center; }
+  .circ label { color: var(--muted); font-size: 14px; }
+  .circ select, .wd select, .wd input {
+    font: 500 14px var(--font-body); color: var(--ink); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; width: 100%;
+  }
   .params label { color: var(--muted); font-size: 14px; }
   .params input {
     font: 600 14px var(--font-body); font-variant-numeric: tabular-nums; color: var(--ink);
@@ -177,6 +213,7 @@
   <dl id="sel-dims"></dl>
   <h3 id="sel-clear-h">Clearance to walls</h3>
   <dl id="sel-clear"></dl>
+  <div class="circ" id="sel-circuit" hidden></div>
   <div class="params" id="sel-params" hidden></div>
   <div class="acts"><button type="button" id="sel-rot">Rotate 90° (R)</button><button type="button" id="sel-del" hidden>Delete outlet</button></div>
   <p class="note" id="sel-note"></p>
@@ -189,6 +226,7 @@
     <button type="button" data-view="plan" title="Top-down floor plan">Top</button>
     <button type="button" data-view="inside" title="Stand inside; click again to turn around">Inside</button>
   </div>
+  <div class="grp"><button type="button" id="wiring" aria-pressed="false" title="Show circuits and the panel schedule">Wiring</button></div>
   <div class="grp" role="group" aria-label="Edit">
     <button type="button" class="icon" id="undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
     <button type="button" class="icon" id="redo" title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
@@ -211,8 +249,11 @@
         </div>
         <h2>Layout</h2>
         <div class="toggles">
-          <button type="button" id="add110">Add 110V outlet</button>
-          <button type="button" id="add220">Add 220V outlet</button>
+          <button type="button" id="add110">+ 110V outlet</button>
+          <button type="button" id="add220">+ 220V outlet</button>
+          <button type="button" id="addsp">+ Switch</button>
+          <button type="button" id="add3w">+ 3-way switch</button>
+          <button type="button" id="addlight">+ 8′ light</button>
           <button type="button" id="f-default">Back to default layout</button>
         </div>
         <h2>Shed, measured</h2>
@@ -231,6 +272,10 @@
     </details>
   </div>
 </div>
+<aside class="wd" id="wd" hidden aria-label="Wiring plan">
+  <div class="wd-head"><h2>Wiring plan</h2><button type="button" id="wd-save">Save…</button><button type="button" class="x" id="wd-close" aria-label="Close wiring plan">×</button></div>
+  <div id="wd-body"></div>
+</aside>
 <div class="hint">Drag to move (wall pieces slide on walls) · <kbd>R</kbd> rotate · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</div>
 <div class="toast" id="toast" role="status" hidden></div>
 
@@ -543,7 +588,7 @@ function buildShed(THREE, hooks) {
     }
   })();
 
-  return { root: root, layers: layers, size: { W: W, L: L, WALL_H: WALL_H, RIDGE: RIDGE, HALF: HALF } };
+  return { root: root, layers: layers, size: { W: W, L: L, WALL_H: WALL_H, RIDGE: RIDGE, HALF: HALF, ZD0: ZD0, ZD1: ZD1, DORMER_TOP: DORMER_TOP } };
 }
 /* Machines. Inches. Each group's origin is the center of its overall footprint, on the floor.
    Local +z is the operator side (front); local x is the machine's width or length as noted.
@@ -1083,19 +1128,76 @@ function buildMachines(THREE) {
       C(g, DARK, 1.6, 'z', 0, p.h / 2, p.d - 0.5, 1);
     });
 
-  // Outlet factory: boxes sit in the stud cavity, faces flush with the stud face (local z = 0).
-  list.makeOutlet = function (kind, id) {
-    var g = new THREE.Group(), is220 = kind === '220';
-    var bw = is220 ? 4 : 2.25, bh = 4;
-    B(g, 0x7d8387, -bw / 2, bw / 2, 0, bh, -2.5, -0.15);                     // steel box
-    B(g, is220 ? 0xd27a3a : WHITE, -bw / 2 - 0.25, bw / 2 + 0.25, -0.25, bh + 0.25, -0.15, 0);   // cover
-    if (is220) C(g, BLACK, 1.1, 'z', 0, bh / 2, 0.02, 0.05);
-    else [bh * 0.3, bh * 0.7].forEach(function (y) { B(g, 0xe6e3da, -0.6, 0.6, y - 0.55, y + 0.55, 0, 0.02); });
-    g.userData.machine = { id: id, label: kind + 'V outlet', model: is220 ? '240V receptacle in a 4″ box' : '120V duplex receptacle',
-      dims: [['Box', bw + '″ × 4″']], note: 'Slides beside a stud and up and down. Boxes sit in the stud cavity, so a TV or board can cover them.' };
+  // ----- wall devices: outlets and switches. Boxes sit in the stud cavity, faces flush with the stud face (local z = 0). -----
+  var texCache = {};
+  function plateTex(kind) {
+    if (texCache[kind] || typeof document === 'undefined') return texCache[kind] || null;
+    var w = kind === '220' ? 160 : 96, h = 160, c = document.createElement('canvas');
+    c.width = w; c.height = h;
+    var x = c.getContext('2d');
+    x.fillStyle = kind === '220' ? '#d9772f' : '#f4f3ee'; x.fillRect(0, 0, w, h);
+    x.strokeStyle = 'rgba(0,0,0,.25)'; x.lineWidth = 3; x.strokeRect(1.5, 1.5, w - 3, h - 3);
+    function slot(cx, cy, sw, sh) { x.fillStyle = '#23262a'; x.fillRect(cx - sw / 2, cy - sh / 2, sw, sh); }
+    if (kind === '110') {                               // NEMA 5-20R duplex: two faces, vertical slots, round ground
+      [52, 108].forEach(function (cy) {
+        x.fillStyle = '#e4e1d8'; x.beginPath(); x.arc(48, cy, 25, 0, Math.PI * 2); x.fill();
+        slot(38, cy - 6, 5, 16); slot(58, cy - 6, 5, 16); slot(62, cy - 9, 9, 4);
+        x.fillStyle = '#23262a'; x.beginPath(); x.arc(48, cy + 12, 4.5, Math.PI, 0); x.fill(); x.fillRect(43.5, cy + 12, 9, 4);
+      });
+    } else if (kind === '220') {                        // NEMA 6-20R single: horizontal + T blade, ground, "240V"
+      x.fillStyle = '#efe7da'; x.beginPath(); x.arc(80, 70, 40, 0, Math.PI * 2); x.fill();
+      slot(56, 62, 20, 6); slot(104, 62, 20, 6); slot(104, 68, 6, 14);
+      x.fillStyle = '#23262a'; x.beginPath(); x.arc(80, 92, 7, Math.PI, 0); x.fill(); x.fillRect(73, 92, 14, 6);
+      x.fillStyle = '#1b1b1b'; x.font = '700 30px Arial, sans-serif'; x.textAlign = 'center'; x.fillText('240V', 80, 146);
+    } else {                                            // switches: toggle; 3-way plate says so
+      x.fillStyle = '#e4e1d8'; x.fillRect(36, 50, 24, 56);
+      x.fillStyle = '#f9f8f4'; x.fillRect(41, 56, 14, 22);
+      x.fillStyle = '#c9c5bb'; x.fillRect(41, 78, 14, 22);
+      if (kind === '3w') { x.fillStyle = '#1b1b1b'; x.font = '700 22px Arial, sans-serif'; x.textAlign = 'center'; x.fillText('3-WAY', 48, 140); }
+    }
+    var t = new THREE.CanvasTexture(c);
+    texCache[kind] = t;
+    return t;
+  }
+  var DEV = {
+    '110': { label: '110V outlet', model: '120V 20A duplex receptacle (NEMA 5-20R)', bw: 2.25, bh: 4 },
+    '220': { label: '220V outlet', model: '240V 20A receptacle (NEMA 6-20R) in a 4″ box', bw: 4, bh: 4 },
+    'sp':  { label: 'Light switch', model: 'Single-pole switch', bw: 2.25, bh: 4 },
+    '3w':  { label: '3-way switch', model: '3-way switch (works with a second 3-way)', bw: 2.25, bh: 4 }
+  };
+  list.makeDevice = function (kind, id) {
+    var g = new THREE.Group(), d = DEV[kind];
+    B(g, 0x7d8387, -d.bw / 2, d.bw / 2, 0, d.bh, -2.5, -0.15);              // steel box in the cavity
+    var pw = d.bw + 0.5, ph = d.bh + 0.5;
+    var tex = plateTex(kind);
+    var plate = new THREE.Mesh(new THREE.BoxGeometry(pw, ph, 0.15),
+      tex ? [mat(0xdddddd), mat(0xdddddd), mat(0xdddddd), mat(0xdddddd), new THREE.MeshLambertMaterial({ map: tex }), mat(0xdddddd)]
+          : mat(kind === '220' ? 0xd9772f : WHITE));
+    plate.position.set(0, d.bh / 2, -0.075); g.add(plate);
+    if (kind === 'sp' || kind === '3w') B(g, 0xf7f6f2, -0.35, 0.35, d.bh / 2 + 0.1, d.bh / 2 + 1, 0, 0.45);  // toggle
+    g.userData.machine = { id: id, label: d.label, model: d.model, dims: [['Box', d.bw + '″ × ' + d.bh + '″']],
+      note: kind === '110' || kind === '220'
+        ? 'Slides beside a stud and up and down. The box sits in the stud cavity, so a TV or board can cover it.'
+        : 'Slides beside a stud and up and down. Standard height is 48″ to the center of the box.' };
     g.userData.mount = 'wall';
-    g.userData.outlet = kind;
-    g.userData.bw = bw;
+    g.userData.dev = kind;
+    g.userData.outlet = kind;           // stud-snapped cavity device
+    g.userData.bw = d.bw;
+    g.userData.params = null;
+    g.userData.rebuild = function () {};
+    return g;
+  };
+  // 8' LED strip light. Long axis on local z; top (mounting face) at y = 0, body hangs below.
+  list.makeLight = function (id) {
+    var g = new THREE.Group();
+    B(g, 0xeceeee, -2.5, 2.5, -1.6, 0, -48, 48);
+    var lens = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.3, 94), new THREE.MeshBasicMaterial({ color: 0xfffbe8 }));
+    lens.position.set(0, -1.75, 0); g.add(lens);
+    [-46.5, 46.5].forEach(function (z) { B(g, 0xc9cccc, -2.6, 2.6, -1.8, 0, z - 1.5, z + 1.5); });
+    g.userData.machine = { id: id, label: '8′ LED strip light', model: '8 ft LED strip fixture, mounted to the rafters', dims: [['Size', '96″ × 5″']],
+      note: 'Slides along the shed and up and down the roof slope; crosses the ridge to the other side.' };
+    g.userData.mount = 'roof';
+    g.userData.dev = 'light';
     g.userData.params = null;
     g.userData.rebuild = function () {};
     return g;
@@ -1292,13 +1394,34 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     microwave: { w: 'right', a: 89.5, y: 21 },
     tvleft:    { w: 'left',  a: 3.5,  y: 54 }
   };
-  var DEF_OUTLETS = [
-    ['110', 'back', 83, 24], ['110', 'back', 83, 42], ['110', 'back', 4, 39], ['110', 'back', -40, 39],
-    ['110', 'back', -10, 80], ['110', 'back', -14, 120],
-    ['220', 'right', -55, 13], ['220', 'right', 61, 13], ['110', 'right', 148, 15], ['110', 'right', 24, 74],
-    ['220', 'left', 4, 13], ['110', 'left', -86, 41], ['220', 'left', -114, 22]
+  // Electrical defaults. Devices: [kind, wall, a, y, circuit]. Kinds: 110, 220 outlets; sp, 3w switches.
+  var DEF_DEVICES = [
+    ['110', 'back', 83, 24, 'c7'], ['110', 'back', 83, 42, 'c7'], ['110', 'back', 4, 39, 'c7'], ['110', 'back', -40, 39, 'c7'],
+    ['110', 'back', -10, 80, 'c7'], ['110', 'back', -14, 120, 'c6'],
+    ['220', 'right', -55, 13, 'c2'], ['220', 'right', 61, 13, 'c3'], ['110', 'right', 148, 15, 'c8'], ['110', 'right', 24, 74, 'c5'],
+    ['110', 'right', -140, 18, 'c4'], ['110', 'right', -86, 20, 'c8'], ['110', 'right', 88, 24, 'c9'], ['110', 'right', 112, 18, 'c9'],
+    ['220', 'left', 4, 13, 'c1'], ['110', 'left', -86, 41, 'c10'], ['220', 'left', -114, 22, 'c11'],
+    ['110', 'left', -150, 40, 'c10'], ['110', 'left', 50, 18, 'c10'],
+    ['3w', 'left', 100, 46, 'c6'], ['3w', 'front', 44, 46, 'c6'], ['sp', 'left', 84, 46, 'c6']
   ];
-  var KEY = 'shed-layout-v5';
+  // 8' strips, three per roof slope: [x (signed, + = two-window side), z center, circuit]
+  var DEF_LIGHTS = [[70, -112, 'c6'], [70, 0, 'c6'], [70, 112, 'c6'], [-70, -84, 'c6'], [-70, 12, 'c6'], [-70, 116, 'c6']];
+  // Branch circuits. v = volts, a = breaker amps, va = assumed running load (volt-amps) for the load check.
+  var DEF_CIRCUITS = [
+    { id: 'c1',  name: 'Table saw (G0651)',          v: 240, a: 20, va: 3120 },
+    { id: 'c2',  name: 'Planer (G0891)',             v: 240, a: 20, va: 2760 },
+    { id: 'c3',  name: 'Shaper (G1026)',             v: 240, a: 20, va: 2880 },
+    { id: 'c11', name: 'Spare 240V receptacle',      v: 240, a: 20, va: 0 },
+    { id: 'c4',  name: 'Dust collector (G1028Z2)',   v: 120, a: 20, va: 1440 },
+    { id: 'c5',  name: 'Mini split',                 v: 120, a: 20, va: 1440 },
+    { id: 'c6',  name: 'Lights & gable fan',         v: 120, a: 15, va: 0 },
+    { id: 'c7',  name: 'Back wall receptacles',      v: 120, a: 20, va: 0 },
+    { id: 'c8',  name: 'Two-window wall receptacles', v: 120, a: 20, va: 0 },
+    { id: 'c9',  name: 'Microwave & fridge',         v: 120, a: 20, va: 1800 },
+    { id: 'c10', name: 'Door wall receptacles',      v: 120, a: 20, va: 0 }
+  ];
+  var circuits = JSON.parse(JSON.stringify(DEF_CIRCUITS));
+  var KEY = 'shed-layout-v6';
   var EPS = 0.001, BIG = 1e6;
   var PAIRS = { 'saw|outfeed': 1, 'outfeed|saw': 1 };   // the outfeed table bolts under the saw's fence
   var WALLS = {
@@ -1360,7 +1483,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   })();
 
   /* ---- items ---- */
-  var items = machines.slice(), byId = {}, outletSeq = 0;
+  var items = machines.slice(), byId = {};
   machines.forEach(function (g) { byId[g.userData.machine.id] = g; if (!g.userData.mount) g.userData.mount = 'floor'; });
   function isWall(g) { return g.userData.mount === 'wall'; }
   function measure(g) {
@@ -1389,7 +1512,10 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     return o;
   }
   function boxAt(g, x, y, z, r) { return rot(g.userData.lr, x, y, z, r); }
-  function boxOf(g) { return boxAt(g, g.position.x, g.position.y, g.position.z, g.userData.r); }
+  function boxOf(g) {
+    if (g.userData.mount === 'roof') return lightBox(stateOf(g));
+    return boxAt(g, g.position.x, g.position.y, g.position.z, g.userData.r);
+  }
   function partsAt(g, x, y, z, r) { return g.userData.parts.map(function (P) { return rot(P, x, y, z, r); }); }
   function ov(a, b, ax) { return a[ax + '0'] < b[ax + '1'] - EPS && a[ax + '1'] > b[ax + '0'] + EPS; }
   function hit3(a, b) { return ov(a, b, 'x') && ov(a, b, 'y') && ov(a, b, 'z'); }
@@ -1401,6 +1527,8 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     items.forEach(function (it) {
       if (it === g || (ignore && ignore.indexOf(it) >= 0)) return;
       var oid = it.userData.machine.id;
+      if (g.userData.mount === 'roof') { if (it.userData.mount === 'roof') o.solid.push(boxOf(it)); return; }
+      if (it.userData.mount === 'roof') return;
       if (!isWall(g)) {                                     // moving a floor piece
         if (isWall(it)) { if (!it.userData.outlet) o.solid.push(boxOf(it)); }
         else if (!PAIRS[id + '|' + oid]) o.flat.push(flat(boxOf(it)));
@@ -1416,7 +1544,14 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }
   // does piece g placed as `st` collide with anything?
   function blocked(g, st, o) {
-    var B = boxAt(g, st.x, st.y, st.z, st.r), i, j;
+    var B, i, j;
+    if (g.userData.mount === 'roof') {
+      B = lightBox(lightState(st.x, st.z));
+      if (Math.abs(st.x) < 12 || Math.abs(st.x) > 88 || B.z0 < -HL - EPS || B.z1 > HL + EPS) return true;
+      for (i = 0; i < o.solid.length; i++) if (hit3(B, o.solid[i])) return true;
+      return false;
+    }
+    B = boxAt(g, st.x, st.y, st.z, st.r);
     if (!isWall(g)) {
       if (B.x0 < -HW - EPS || B.x1 > HW + EPS || B.z0 < -HL - EPS || B.z1 > HL + EPS) return true;
       for (i = 0; i < o.flat.length; i++) if (hit3(B, o.flat[i])) return true;
@@ -1450,11 +1585,19 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   /* ---- state of a piece ---- */
   function stateOf(g) {
     var u = g.userData;
+    if (u.mount === 'roof') return lightState(g.position.x, g.position.z);
     if (isWall(g)) return { w: u.wall, a: u.a, y: g.position.y, x: g.position.x, z: g.position.z, r: WALLS[u.wall].r };
     return { x: g.position.x, y: 0, z: g.position.z, r: u.r };
   }
   function wallState(w, a, y) { var p = wallPos(w, a, y); return { w: w, a: a, y: y, x: p[0], z: p[2], r: WALLS[w].r }; }
   function apply(g, st) {
+    if (g.userData.mount === 'roof') {
+      var ls = lightState(st.x, st.z);
+      g.userData.r = 0;
+      g.position.set(ls.x, ls.y, ls.z);
+      g.rotation.set(0, 0, (ls.x > 0 ? -1 : 1) * Math.atan(ls.m));
+      return;
+    }
     if (isWall(g)) { g.userData.wall = st.w; g.userData.a = st.a; g.userData.r = WALLS[st.w].r; }
     else g.userData.r = ((st.r % 4) + 4) % 4;
     g.rotation.y = g.userData.r * Math.PI / 2;
@@ -1483,6 +1626,17 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }
   // nearest free, grid-snapped spot within `reach` inches
   function findFree(g, st, o, reach) {
+    if (isRoof(g)) {
+      var bx = Math.round(st.x) || 60, bz = Math.round(st.z);
+      for (var d0 = 0; d0 <= reach; d0++) for (var s0 = 0; s0 < (d0 ? 4 : 1); s0++) {
+        var c0 = [[0, 0], [0, d0], [0, -d0], [d0 * Math.sign(bx), 0]][s0];
+        var cand = { x: bx - c0[0], z: bz + c0[1] };
+        if (!blocked(g, cand, o)) return lightState(cand.x, cand.z);
+        var other = { x: -cand.x, z: cand.z };
+        if (d0 > 0 && !blocked(g, other, o)) return lightState(other.x, other.z);
+      }
+      return null;
+    }
     var wall = isWall(g), base = wall ? snapWall(g, st.w, st.a, st.y) : snapFloor(g, st.x, st.z, st.r);
     if (!blocked(g, base, o)) return base;
     var step = g.userData.outlet ? 16 : 1;
@@ -1542,34 +1696,82 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (isWall(g)) apply(g, wallState(d.w, d.a, d.y)); else apply(g, { x: d.x, y: 0, z: d.z, r: d.r });
   }
 
-  /* ---- outlets ---- */
-  function addOutlet(kind, w, a, y, id) {
-    var g = machines.makeOutlet(kind, id || ('outlet-' + (++outletSeq)));
-    var n = +String(g.userData.machine.id).replace(/\D/g, '');
-    if (n > outletSeq) outletSeq = n;
-    measure(g);
+  /* ---- devices (outlets, switches) and roof lights ---- */
+  var SZ = shed.size, DPITCH = (SZ.RIDGE - SZ.DORMER_TOP) / SZ.HALF;
+  function roofSlope(x, z0, z1) {
+    var inDormer = x < 0 && z0 >= SZ.ZD0 && z1 <= SZ.ZD1;
+    var r = SZ.HALF - Math.abs(x);
+    return inDormer ? { y: SZ.DORMER_TOP + r * DPITCH, m: DPITCH } : { y: WALL_TOP + r * PITCH, m: PITCH };
+  }
+  function lightState(x, z) { var rs = roofSlope(x, z - 48, z + 48); return { x: x, z: z, y: rs.y, m: rs.m, r: 0 }; }
+  function lightBox(st) { return { x0: st.x - 3, x1: st.x + 3, y0: st.y - 3.5, y1: st.y + 0.5, z0: st.z - 48, z1: st.z + 48 }; }
+  function isRoof(g) { return g.userData.mount === 'roof'; }
+  function isDev(g) { return !!g.userData.dev; }
+  var seq = 0;
+  function nextId(prefix) { return prefix + '-' + (++seq); }
+  function bumpSeq(id) { var n = +String(id).replace(/\D/g, ''); if (n > seq) seq = n; }
+  function addSprite(g, scale, pos) {
     var lab = label(g.userData.machine.label);
-    if (lab) { lab.scale.set(30, 7.5, 1); lab.position.set(0, 10, 4); g.add(lab); g.userData.sprite = lab; lab.visible = false; }
-    items.push(g); byId[g.userData.machine.id] = g; mGroup.add(g);
+    if (lab) { lab.scale.set(scale[0], scale[1], 1); lab.position.set(pos[0], pos[1], pos[2]); g.add(lab); g.userData.sprite = lab; lab.visible = false; }
+  }
+  function addDevice(kind, w, a, y, c, id) {
+    id = id || nextId('dev'); bumpSeq(id);
+    var g = machines.makeDevice(kind, id);
+    measure(g);
+    addSprite(g, [30, 7.5], [0, 10, 4]);
+    items.push(g); byId[id] = g; mGroup.add(g);
     apply(g, snapWall(g, w, a, y));
+    g.userData.c = c && circuitById(c) ? c : autoCircuit(kind, w);
     return g;
   }
-  function removeOutlet(g) {
-    mGroup.remove(g); items.splice(items.indexOf(g), 1); delete byId[g.userData.machine.id];
+  function addLight(x, z, c, id) {
+    id = id || nextId('light'); bumpSeq(id);
+    var g = machines.makeLight(id);
+    measure(g);
+    addSprite(g, [40, 10], [0, 10, 0]);
+    items.push(g); byId[id] = g; mGroup.add(g);
+    apply(g, lightState(x, z));
+    g.userData.c = c && circuitById(c) ? c : autoCircuit('light');
+    return g;
   }
-  function clearOutlets() { items.filter(function (g) { return g.userData.outlet; }).forEach(removeOutlet); }
+  function removeItem(g) { mGroup.remove(g); items.splice(items.indexOf(g), 1); delete byId[g.userData.machine.id]; }
+  function clearDevices() { items.filter(isDev).forEach(removeItem); }
+
+  /* ---- circuits ---- */
+  function circuitById(id) { for (var i = 0; i < circuits.length; i++) if (circuits[i].id === id) return circuits[i]; return null; }
+  function newCircuit(name, v, a) {
+    var n = 0; circuits.forEach(function (c) { n = Math.max(n, +c.id.replace(/\D/g, '')); });
+    var c = { id: 'c' + (n + 1), name: name, v: v, a: a, va: 0 };
+    circuits.push(c); return c.id;
+  }
+  function autoCircuit(kind, wall) {
+    if (kind === '220') return newCircuit('240V receptacle', 240, 20);
+    if (kind === 'sp' || kind === '3w' || kind === 'light') {
+      var lit = items.filter(function (g) { return g.userData.dev === 'light' && g.userData.c; })[0];
+      if (lit) return lit.userData.c;
+      var named = circuits.filter(function (c) { return /light/i.test(c.name) && c.v === 120; })[0];
+      return named ? named.id : newCircuit('Lighting', 120, 15);
+    }
+    var pref = { back: 'c7', right: 'c8', left: 'c10', front: 'c10' }[wall];
+    if (pref && circuitById(pref) && circuitById(pref).v === 120) return pref;
+    var rc = circuits.filter(function (c) { return c.v === 120 && /recept/i.test(c.name); })[0];
+    return rc ? rc.id : newCircuit('Receptacles', 120, 20);
+  }
 
   /* ---- save / load / undo ---- */
   function collect() {
     var out = {};
     items.forEach(function (g) {
       var id = g.userData.machine.id, s = stateOf(g), e;
-      if (isWall(g)) e = { w: s.w, a: +s.a.toFixed(3), y: +s.y.toFixed(3) };
+      if (isRoof(g)) e = { k: 'light', x: +s.x.toFixed(3), z: +s.z.toFixed(3) };
+      else if (isWall(g)) e = { w: s.w, a: +s.a.toFixed(3), y: +s.y.toFixed(3) };
       else e = { x: +s.x.toFixed(3), z: +s.z.toFixed(3), r: s.r };
-      if (g.userData.outlet) e.k = g.userData.outlet;
+      if (g.userData.dev && g.userData.dev !== 'light') e.k = g.userData.dev;
+      if (g.userData.c) e.c = g.userData.c;
       if (g.userData.params) e.p = JSON.parse(JSON.stringify(g.userData.params));
       out[id] = e;
     });
+    out.__circuits = JSON.parse(JSON.stringify(circuits));
     return out;
   }
   function save() { try { localStorage.setItem(KEY, JSON.stringify(collect())); } catch (e) {} }
@@ -1578,23 +1780,34 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     machines.forEach(function (g) {
       var id = g.userData.machine.id, sv = saved && saved[id];
       if (g.userData.params) {
-        g.userData.params = JSON.parse(JSON.stringify(sv && sv.p ? sv.p : g.userData.p0 || DEFAULTS[id].p));
+        g.userData.params = JSON.parse(JSON.stringify(sv && sv.p ? sv.p : g.userData.p0));
         rebuildMachine(g);
       }
       if (sv && isWall(g) && WALLS[sv.w] && isFinite(sv.a) && isFinite(sv.y)) apply(g, wallState(sv.w, +sv.a, +sv.y));
       else if (sv && !isWall(g) && isFinite(sv.x) && isFinite(sv.z)) apply(g, { x: +sv.x, y: 0, z: +sv.z, r: +sv.r || 0 });
       else placeDefault(g);
     });
-    clearOutlets(); outletSeq = 0;
+    clearDevices(); seq = 0;
+    circuits = saved && Array.isArray(saved.__circuits) && saved.__circuits.length
+      ? JSON.parse(JSON.stringify(saved.__circuits)) : JSON.parse(JSON.stringify(DEF_CIRCUITS));
     var keys = saved ? Object.keys(saved).filter(function (k) { return saved[k] && saved[k].k; }) : [];
     if (keys.length) keys.forEach(function (k) {
       var e = saved[k];
-      if (WALLS[e.w] && (e.k === '110' || e.k === '220')) addOutlet(e.k, e.w, +e.a, +e.y, k);
+      if (e.k === 'light' && isFinite(e.x) && isFinite(e.z)) addLight(+e.x, +e.z, e.c, k);
+      else if (DEVK[e.k] && WALLS[e.w]) addDevice(e.k, e.w, +e.a, +e.y, e.c, k);
     });
-    else DEF_OUTLETS.forEach(function (o) { addOutlet(o[0], o[1], o[2], o[3]); });
+    var hasSwitchOrLight = keys.some(function (k) { return saved[k].k === 'sp' || saved[k].k === '3w' || saved[k].k === 'light'; });
+    if (!keys.length) {                                   // no devices saved: use the full default set
+      DEF_DEVICES.forEach(function (d) { addDevice(d[0], d[1], d[2], d[3], d[4]); });
+    } else if (!hasSwitchOrLight) {                       // older layout with outlets only: add default switches
+      DEF_DEVICES.forEach(function (d) { if (d[0] === 'sp' || d[0] === '3w') addDevice(d[0], d[1], d[2], d[3], d[4]); });
+    }
+    if (!hasSwitchOrLight) DEF_LIGHTS.forEach(function (l) { addLight(l[0], l[1], l[2]); });
     save();
     select(selected && items.indexOf(selected) >= 0 ? selected : null);
+    if (wiringOn) buildWiring();
   }
+  var DEVK = { '110': 1, '220': 1, 'sp': 1, '3w': 1 };
   var undoStack = [], redoStack = [];
   function snap() { return JSON.stringify(collect()); }
   function commit(before) {
@@ -1624,11 +1837,14 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     clearTimeout(toast.t); toast.t = setTimeout(function () { el.hidden = true; }, 3500);
   }
   async function saveFile() {
-    var data = JSON.stringify({ app: 'crack-shack-layout', version: 2, savedAt: new Date().toISOString(), machines: collect() }, null, 2);
-    var name = 'shop-layout-' + new Date().toISOString().slice(0, 10) + '.json';
+    var data = JSON.stringify({ app: 'crack-shack-layout', version: 3, savedAt: new Date().toISOString(), machines: collect() }, null, 2);
+    await saveText('shop-layout-' + new Date().toISOString().slice(0, 10) + '.json', data, 'application/json', 'Shop layout', '.json');
+  }
+  async function saveText(name, data, mime, desc, ext) {
     try {
       if (window.showSaveFilePicker) {
-        var h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'Shop layout', accept: { 'application/json': ['.json'] } }] });
+        var acc = {}; acc[mime] = [ext];
+        var h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: desc, accept: acc }] });
         var w = await h.createWritable(); await w.write(data); await w.close();
         toast('Saved ' + h.name + '.');
         return;
@@ -1638,7 +1854,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     }
     try {
       var a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
+      a.href = URL.createObjectURL(new Blob([data], { type: mime }));
       a.download = name; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
       toast('Saving ' + name + '.');
@@ -1690,7 +1906,11 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     var b = boxOf(selected);
     selBox.box.min.set(b.x0, b.y0, b.z0); selBox.box.max.set(b.x1, b.y1, b.z1);
     var rows;
-    if (isWall(selected)) {
+    if (isRoof(selected)) {
+      rows = [['On', selected.position.x > 0 ? 'Two-window side of the roof' : 'Door side of the roof', true],
+              ['Height (mount)', selected.position.y], ['Double-door end', b.z0 + HL], ['Back end', HL - b.z1],
+              ['From the ridge', Math.abs(selected.position.x)]];
+    } else if (isWall(selected)) {
       var w = selected.userData.wall, W = WALLS[w], ax = W.ax;
       var ends = w === 'left' ? ['Double-door end', 'Back end'] : w === 'right' ? ['Double-door end', 'Back end']
                : w === 'back' ? ['Entry-door wall', 'Two-window wall'] : ['Entry-door wall', 'Two-window wall'];
@@ -1698,10 +1918,10 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     } else {
       rows = [['Entry-door wall', b.x0 + HW], ['Two-window wall', HW - b.x1], ['Double-door end', b.z0 + HL], ['Back wall', HL - b.z1]];
     }
-    document.getElementById('sel-clear-h').textContent = isWall(selected) ? 'Position' : 'Clearance to walls';
+    document.getElementById('sel-clear-h').textContent = isWall(selected) || isRoof(selected) ? 'Position' : 'Clearance to walls';
     document.getElementById('sel-clear').innerHTML = rows.map(function (r) {
       if (r[2]) return '<dt>' + r[0] + '</dt><dd>' + esc(r[1]) + '</dd>';
-      var tight = r[1] < 0.25 && !/edge/.test(r[0]);
+      var tight = r[1] < 0.25 && !/edge|Height|ridge/.test(r[0]);
       return '<dt>' + r[0] + '</dt><dd' + (tight ? ' class="tight"' : '') + '>' + (tight ? 'Against it' : ftin(r[1])) + '</dd>';
     }).join('');
   }
@@ -1718,9 +1938,12 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     document.getElementById('sel-dims').hidden = !!g.userData.params;
     document.getElementById('sel-dims').innerHTML = dims.map(function (d) { return '<dt>' + esc(d[0]) + '</dt><dd>' + esc(d[1]) + '</dd>'; }).join('');
     document.getElementById('sel-note').textContent = m.note;
-    document.getElementById('sel-rot').hidden = isWall(g);
-    document.getElementById('sel-del').hidden = !g.userData.outlet;
+    document.getElementById('sel-rot').hidden = isWall(g) || isRoof(g);
+    document.getElementById('sel-del').hidden = !isDev(g);
+    document.getElementById('sel-del').textContent = 'Delete ' + m.label.toLowerCase();
+    renderCircuit(g);
     renderParams(g);
+    if (wiringOn && !drag) buildWiring();
     updatePanel();
   }
   function renderParams(g) {
@@ -1776,21 +1999,400 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (!spot) { toast('Not enough room to rotate it here. Move it somewhere more open first.', true); return; }
     apply(g, spot); updatePanel(); commit(before);
   }
+  function renderCircuit(g) {
+    var box = document.getElementById('sel-circuit');
+    if (!isDev(g)) { box.hidden = true; box.innerHTML = ''; return; }
+    var need = g.userData.dev === '220' ? 240 : 120;
+    slotCache = assignSlots();
+    var opts = circuits.filter(function (c) { return c.v === need; }).map(function (c) {
+      return '<option value="' + c.id + '"' + (c.id === g.userData.c ? ' selected' : '') + '>' + esc(slotOf(c.id) + ' · ' + c.name) + '</option>';
+    }).join('') + '<option value="__new">New ' + need + 'V circuit…</option>';
+    box.hidden = false;
+    box.innerHTML = '<label for="sel-c">Circuit</label><select id="sel-c">' + opts + '</select>';
+    document.getElementById('sel-c').addEventListener('change', function (e) {
+      var before = snap(), v = e.target.value;
+      if (v === '__new') v = newCircuit(need === 240 ? '240V circuit' : 'New circuit', need, need === 240 ? 20 : 20);
+      g.userData.c = v;
+      commit(before); renderCircuit(g); if (wiringOn) buildWiring();
+    });
+  }
   function addNew(kind) {
-    var before = snap();
-    // start on the wall the camera is looking at, at outlet height, nearest free stud bay
+    var before = snap(), g, spot;
     var dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-    var w = Math.abs(dir.x) > Math.abs(dir.z) ? (dir.x > 0 ? 'right' : 'left') : (dir.z > 0 ? 'back' : 'front');
-    var g = addOutlet(kind, w, 0, 18), spot = findFree(g, stateOf(g), obstacles(g), 40);
-    if (!spot) { removeOutlet(g); toast('No free spot for an outlet on that wall.', true); return; }
+    if (kind === 'light') {
+      g = addLight(dir.x >= 0 ? 60 : -60, 0);
+      spot = findFree(g, lightState(g.position.x, 0), obstacles(g), 140);
+      if (!spot) { removeItem(g); toast('No free spot for another light.', true); return; }
+    } else {
+      // start on the wall the camera faces, at the usual height, in the nearest free stud bay
+      var w = Math.abs(dir.x) > Math.abs(dir.z) ? (dir.x > 0 ? 'right' : 'left') : (dir.z > 0 ? 'back' : 'front');
+      g = addDevice(kind, w, 0, kind === 'sp' || kind === '3w' ? 46 : 18);
+      spot = findFree(g, stateOf(g), obstacles(g), 40);
+      if (!spot) { removeItem(g); toast('No free spot on that wall.', true); return; }
+    }
     apply(g, spot); select(g); commit(before);
     document.getElementById('more').open = false;
-    toast('Added a ' + kind + 'V outlet on the ' + WALLS[w].name.toLowerCase() + '.');
+    var nm = g.userData.machine.label.replace(/^Light/, 'light');
+    toast('Added ' + (/^[aeiou8]/i.test(nm) ? 'an ' : 'a ') + nm + '. Drag it into place.');
+    if (wiringOn) buildWiring();
   }
   function deleteSel() {
-    if (!selected || !selected.userData.outlet) return;
-    var before = snap(); removeOutlet(selected); select(null); commit(before);
+    if (!selected || !isDev(selected)) return;
+    var before = snap(); removeItem(selected); select(null); commit(before);
+    if (wiringOn) buildWiring();
   }
+
+  /* ================= wiring plan ================= */
+  var wiringOn = false, wireGroup = new THREE.Group(), wirePlan = null;
+  scene.add(wireGroup);
+  var FEED_A = 50, PANEL_A = 100, PANEL_SPACES = 24, RUN_LO = 16, RUN_HI = 86, VA_RECEP = 180, VA_LIGHT = 40, VA_MISC = 1500;
+  var COLORS = [0xd1495b, 0x2e86ab, 0xf18f01, 0x3b8b3b, 0x8e44ad, 0xc0392b, 0x16a085, 0xd35400, 0x2c3e50, 0xb7950b, 0x7f8c8d, 0x1abc9c, 0xe84393, 0x6c5ce7];
+  function wireGauge(a) { return a <= 15 ? 14 : a <= 20 ? 12 : a <= 30 ? 10 : a <= 40 ? 8 : 6; }
+  function legOf(n) { return Math.ceil(n / 2) % 2 === 1 ? 'A' : 'B'; }
+  function devicesOn(cid) { return items.filter(function (g) { return isDev(g) && g.userData.c === cid; }); }
+  function circuitVA(c) {
+    if (c.va) return c.va;
+    var va = 0;
+    devicesOn(c.id).forEach(function (g) { var k = g.userData.dev; va += k === 'light' ? VA_LIGHT : (k === '110' || k === '220') ? VA_RECEP : 0; });
+    return va;
+  }
+  // breaker slots: 2-pole breakers first, then 1-pole on the lighter leg
+  function assignSlots() {
+    var used = {}, out = {}, leg = { A: 0, B: 0 };
+    circuits.filter(function (c) { return c.v === 240; }).forEach(function (c) {
+      for (var n = 1; n + 2 <= PANEL_SPACES; n++) if (!used[n] && !used[n + 2]) {
+        used[n] = used[n + 2] = 1; out[c.id] = { slots: [n, n + 2], label: n + '·' + (n + 2) }; break;
+      }
+      var amps = circuitVA(c) / 240; leg.A += amps; leg.B += amps;
+    });
+    circuits.filter(function (c) { return c.v === 120; }).slice().sort(function (a, b) { return circuitVA(b) - circuitVA(a); }).forEach(function (c) {
+      var want = leg.A <= leg.B ? 'A' : 'B', pick = null;
+      for (var n = 1; n <= PANEL_SPACES; n++) if (!used[n] && legOf(n) === want) { pick = n; break; }
+      if (pick === null) for (n = 1; n <= PANEL_SPACES; n++) if (!used[n]) { pick = n; break; }
+      if (pick === null) { out[c.id] = { slots: [], label: '—' }; return; }
+      used[pick] = 1; out[c.id] = { slots: [pick], label: String(pick), leg: legOf(pick) };
+      leg[legOf(pick)] += circuitVA(c) / 120;
+    });
+    return out;
+  }
+  var slotCache = {};
+  function slotOf(cid) { return (slotCache[cid] && slotCache[cid].label) || '?'; }
+
+  /* ---- routing around the perimeter, inside the stud cavity ---- */
+  var PL = SZ.L, PW = SZ.W, PER = 2 * (PL + PW);
+  function tOf(w, a) { return w === 'left' ? a + HL : w === 'back' ? PL + a + HW : w === 'right' ? PL + PW + HL - a : 2 * PL + PW + HW - a; }
+  function pt(t, y) {
+    t = ((t % PER) + PER) % PER;
+    if (t <= PL) return [-HW - 1.75, y, t - HL];
+    if (t <= PL + PW) return [t - PL - HW, y, HL + 1.75];
+    if (t <= 2 * PL + PW) return [HW + 1.75, y, HL - (t - PL - PW)];
+    return [HW - (t - 2 * PL - PW), y, -HL - 1.75];
+  }
+  var CORNERS = [0, PL, PL + PW, 2 * PL + PW];
+  var DOORS = [[272, 308], [2 * PL + PW + HW - 36, 2 * PL + PW + HW + 36]];
+  function pdist(t1, t2) { var d = ((t2 - t1) % PER + PER) % PER; return Math.min(d, PER - d); }
+  // points for a horizontal run at height y from t1 to t2 (shorter way round), hopping over door headers
+  function run(t1, t2, y) {
+    var fwd = ((t2 - t1) % PER + PER) % PER, dir = fwd <= PER / 2 ? 1 : -1, len = dir > 0 ? fwd : PER - fwd;
+    var ev = [];
+    function along(t) { var d = dir > 0 ? ((t - t1) % PER + PER) % PER : ((t1 - t) % PER + PER) % PER; return d; }
+    CORNERS.forEach(function (c) { var d = along(c); if (d > 0.01 && d < len - 0.01) ev.push({ d: d, t: c, k: 'c' }); });
+    if (y < 84) DOORS.forEach(function (o) {
+      var a = along(o[0] - 3), b = along(o[1] + 3), d0 = Math.min(a, b), d1 = Math.max(a, b);
+      if (d1 - d0 < 60 && d0 > 0 && d1 < len) { ev.push({ d: d0, t: dir > 0 ? o[0] - 3 : o[1] + 3, k: 'up' }); ev.push({ d: d1, t: dir > 0 ? o[1] + 3 : o[0] - 3, k: 'down' }); }
+    });
+    ev.sort(function (a, b) { return a.d - b.d; });
+    var pts = [pt(t1, y)], cy = y;
+    ev.forEach(function (e) {
+      if (e.k === 'c') pts.push(pt(e.t, cy));
+      else if (e.k === 'up') { pts.push(pt(e.t, cy)); cy = RUN_HI; pts.push(pt(e.t, cy)); }
+      else { pts.push(pt(e.t, cy)); cy = y; pts.push(pt(e.t, cy)); }
+    });
+    pts.push(pt(t2, cy));
+    return pts;
+  }
+  function anchor(g) {
+    var b = boxOf(g);
+    if (isRoof(g)) return { roof: true, x: g.position.x, y: g.position.y, z0: b.z0 + 2, z1: b.z1 - 2 };
+    var u = g.userData;
+    return { t: tOf(u.wall, u.a), y: (b.y0 + b.y1) / 2, y0: b.y0, y1: b.y1 };
+  }
+  function len(pts) { var L = 0; for (var i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1], pts[i][2] - pts[i - 1][2]); return L; }
+
+  function routeCircuit(c, panelA) {
+    var segs = [], devs = devicesOn(c.id), wires = c.v === 240 ? 2 : 2;
+    var lights = devs.filter(function (g) { return g.userData.dev === 'light'; });
+    var sw3 = devs.filter(function (g) { return g.userData.dev === '3w'; }), sw1 = devs.filter(function (g) { return g.userData.dev === 'sp'; });
+    var recs = devs.filter(function (g) { return g.userData.dev === '110' || g.userData.dev === '220'; });
+    function seg(pts, cond, note) { segs.push({ pts: pts, cond: cond || wires, note: note || '' }); }
+    function wallHop(from, to, h) {                     // from/to: anchors on walls
+      var p = [pt(from.t, from.y)];
+      p = p.concat(run(from.t, to.t, h));
+      p.push(pt(to.t, to.y));
+      return p;
+    }
+    function chain(start, list, h) {
+      var cur = start, left = list.slice(), order = [];
+      while (left.length) {
+        left.sort(function (a, b) { return pdist(cur.t, anchor(a).t) - pdist(cur.t, anchor(b).t); });
+        var nx = left.shift(), an = anchor(nx);
+        seg(wallHop(cur, an, h)); order.push(nx); cur = an;
+      }
+      return order;
+    }
+    var feedLo = { t: panelA.t, y: panelA.y0 }, feedHi = { t: panelA.t, y: panelA.y1 };
+    var isLighting = lights.length || sw3.length || sw1.length;
+    if (!isLighting) { chain(feedLo, recs, RUN_LO); return segs; }
+    // lighting: panel -> first switch box (always hot), travelers between 3-ways, switch leg to lights
+    var switches = sw3.concat(sw1);
+    var first = null, ctrl = null, extra = sw1.slice();
+    if (switches.length) {
+      switches.sort(function (a, b) { return pdist(panelA.t, anchor(a).t) - pdist(panelA.t, anchor(b).t); });
+      first = switches[0];
+      seg(wallHop(feedHi, anchor(first), RUN_HI));
+      if (sw3.length >= 2) {
+        var A = sw3[0] === first ? sw3[0] : (sw3.indexOf(first) >= 0 ? first : sw3[0]), Bsw = sw3.filter(function (g) { return g !== A; })[0];
+        if (A !== first) seg(wallHop(anchor(first), anchor(A), RUN_HI));
+        seg(wallHop(anchor(A), anchor(Bsw), RUN_HI), 3, 'travelers');
+        ctrl = Bsw;
+      } else ctrl = sw1.length ? sw1[0] : sw3[0];
+      extra = sw1.filter(function (g) { return g !== ctrl; });
+      extra.forEach(function (g) { if (g !== first) seg(wallHop(anchor(first), anchor(g), RUN_HI)); });
+    }
+    // lights: from the controlling switch up to the plate, along to the wall under the nearest light, up the rafter
+    if (lights.length) {
+      var src = ctrl ? anchor(ctrl) : feedHi, left = lights.slice(), curPt = null;
+      left.sort(function (a, b) {
+        var ea = anchor(a), eb = anchor(b);
+        return pdist(src.t, tOf(ea.x > 0 ? 'right' : 'left', ea.z0)) - pdist(src.t, tOf(eb.x > 0 ? 'right' : 'left', eb.z0));
+      });
+      var l0 = left.shift(), a0 = anchor(l0), wz = a0.z0, wt = tOf(a0.x > 0 ? 'right' : 'left', wz);
+      var p = [pt(src.t, src.y)].concat(run(src.t, wt, RUN_HI));
+      var wx = (a0.x > 0 ? 1 : -1) * (HW - 1);
+      p.push([wx, roofSlope(wx, wz, wz).y - 1, wz]); p.push([a0.x, a0.y - 1, wz]);
+      seg(p); curPt = { x: a0.x, y: a0.y - 1, z: a0.z1, side: a0.x > 0 };
+      while (left.length) {
+        left.sort(function (a, b) { return Math.hypot(anchor(a).x - curPt.x, anchor(a).z0 - curPt.z) - Math.hypot(anchor(b).x - curPt.x, anchor(b).z0 - curPt.z); });
+        var nx = left.shift(), an = anchor(nx), near = Math.abs(an.z0 - curPt.z) < Math.abs(an.z1 - curPt.z) ? an.z0 : an.z1;
+        var pts = [[curPt.x, curPt.y, curPt.z]];
+        if ((an.x > 0) !== curPt.side) pts.push([0, SZ.RIDGE - 4, (curPt.z + near) / 2]);
+        pts.push([an.x, an.y - 1, near]);
+        seg(pts);
+        curPt = { x: an.x, y: an.y - 1, z: near === an.z0 ? an.z1 : an.z0, side: an.x > 0 };
+      }
+    }
+    // receptacles on a lighting circuit: switched by an extra single-pole if there is one, else always hot from the first box
+    if (recs.length) chain(extra.length ? anchor(extra[0]) : first ? anchor(first) : feedLo, recs, extra.length || first ? RUN_HI : RUN_LO);
+    return segs;
+  }
+
+  function computePlan() {
+    slotCache = assignSlots();
+    var pnl = byId.panel, pa = anchor(pnl);
+    var plan = { circuits: [], legA: 0, legB: 0, cable: {}, warn: [] };
+    circuits.forEach(function (c, i) {
+      var segs = routeCircuit(c, pa), g = wireGauge(c.a), devs = devicesOn(c.id), ft = 0;
+      segs.forEach(function (sg) {
+        var L = len(sg.pts) / 12, key = g + '/' + sg.cond + (sg.cond === 3 ? ' (travelers)' : '');
+        sg.ft = L; ft += L;
+        plan.cable[key] = (plan.cable[key] || 0) + L + 1;
+      });
+      var count = {}; devs.forEach(function (d) { count[d.userData.dev] = (count[d.userData.dev] || 0) + 1; });
+      var hasRec = !!(count['110'] || count['220']);
+      plan.circuits.push({ c: c, color: COLORS[i % COLORS.length], segs: segs, ft: Math.ceil(ft + devs.length + 2), gauge: g,
+        count: count, gfci: hasRec, va: circuitVA(c), slot: slotCache[c.id] });
+      if (c.v === 120 && devs.some(function (d) { return d.userData.dev === '220'; })) plan.warn.push(c.name + ': has a 220V outlet on a 120V circuit.');
+      if (!devs.length && c.va === 0) plan.warn.push(c.name + ': nothing is assigned to it yet.');
+    });
+    // peak estimate: one 240V machine at a time + dedicated 120V loads + lighting + 1500 VA of hand tools
+    var big = 0; plan.circuits.forEach(function (p) { if (p.c.v === 240) big = Math.max(big, p.va); });
+    var A = big / 240, Bv = big / 240;
+    plan.circuits.forEach(function (p) {
+      if (p.c.v !== 120) return;
+      var dedicated = p.c.va > 0 || p.count.light;
+      if (!dedicated) return;
+      var amps = p.va / 120;
+      if (p.slot && p.slot.leg === 'B') Bv += amps; else A += amps;
+    });
+    if (A <= Bv) A += VA_MISC / 120; else Bv += VA_MISC / 120;
+    plan.legA = A; plan.legB = Bv; plan.big = big;
+    var spaces = 0; circuits.forEach(function (c) { spaces += c.v === 240 ? 2 : 1; });
+    plan.spaces = spaces;
+    if (spaces > PANEL_SPACES) plan.warn.push('More breakers than the ' + PANEL_SPACES + '-space panel holds.');
+    if (Math.max(A, Bv) > FEED_A * 0.8) plan.warn.push('Estimated peak is over 80% of the 50A feeder. Run fewer things at once or upsize the feeder.');
+    return plan;
+  }
+
+  function buildWiring() {
+    while (wireGroup.children.length) { var c0 = wireGroup.children.pop(); if (c0.geometry) c0.geometry.dispose(); }
+    wirePlan = computePlan();
+    var focus = selected && isDev(selected) ? selected.userData.c : null;
+    wirePlan.circuits.forEach(function (p) {
+      // drawn over everything, like an X-ray, so runs inside walls and above plates stay visible
+      var m = new THREE.MeshBasicMaterial({ color: p.color, transparent: true, opacity: focus && focus !== p.c.id ? 0.15 : 0.95, depthTest: false });
+      p.segs.forEach(function (sg) {
+        for (var i = 1; i < sg.pts.length; i++) {
+          var a = new THREE.Vector3().fromArray(sg.pts[i - 1]), b = new THREE.Vector3().fromArray(sg.pts[i]), d = b.clone().sub(a), L = d.length();
+          if (L < 0.05) continue;
+          var r = sg.cond === 3 ? 1.3 : 0.9;
+          var cyl = new THREE.Mesh(new THREE.CylinderGeometry(r, r, L, 6), m);
+          cyl.position.copy(a).add(b).multiplyScalar(0.5);
+          cyl.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+          cyl.renderOrder = focus === p.c.id ? 8 : 7;
+          wireGroup.add(cyl);
+        }
+      });
+    });
+    renderDrawer();
+  }
+  var skinMemo = null;
+  function setWiring(on) {
+    if (on && !skinMemo) {
+      skinMemo = { wallSkin: shed.layers.wallSkin.visible, roofSkin: shed.layers.roofSkin.visible };
+      setLayer('wallSkin', false); setLayer('roofSkin', false);
+    } else if (!on && skinMemo) {
+      setLayer('wallSkin', skinMemo.wallSkin); setLayer('roofSkin', skinMemo.roofSkin); skinMemo = null;
+    }
+    wiringOn = on;
+    wireGroup.visible = on;
+    document.getElementById('wiring').setAttribute('aria-pressed', on ? 'true' : 'false');
+    document.getElementById('wd').hidden = !on;
+    if (on) buildWiring();
+  }
+
+  /* ---- schematic drawer ---- */
+  function ampsBar(v) { var pct = Math.min(100, v / FEED_A * 100); return '<span class="bar2"><i style="width:' + pct.toFixed(0) + '%"' + (v > FEED_A * 0.8 ? ' class="hot"' : '') + '></i></span>'; }
+  function devSummary(count) {
+    var names = { '110': '110V outlet', '220': '220V outlet', 'sp': 'switch', '3w': '3-way', 'light': 'light' }, out = [];
+    Object.keys(names).forEach(function (k) { if (count[k]) out.push(count[k] + ' ' + names[k] + (count[k] > 1 ? (k === '3w' ? 's' : k === 'sp' ? 'es' : 's') : '')); });
+    return out.join(', ') || '—';
+  }
+  function oneLineSVG(plan) {
+    var rows = plan.circuits.slice().sort(function (a, b) { return (a.slot.slots[0] || 99) - (b.slot.slots[0] || 99); });
+    var H = 150 + rows.length * 26, W = 440, y0 = 128, o = [];
+    o.push('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + W + ' ' + H + '" width="100%" font-family="Barlow, Arial, sans-serif" font-size="12">');
+    o.push('<rect x="10" y="8" width="150" height="34" rx="4" fill="none" stroke="currentColor"/><text x="20" y="23" font-weight="600">House panel</text><text x="20" y="37">50A 2-pole feeder breaker</text>');
+    o.push('<line x1="40" y1="42" x2="40" y2="84" stroke="currentColor" stroke-width="2.5"/>');
+    o.push('<text x="50" y="62">Feeder: 2 hots + neutral + ground</text><text x="50" y="77">6 AWG Cu assumed. Verify the existing wire.</text>');
+    o.push('<rect x="10" y="84" width="230" height="34" rx="4" fill="none" stroke="currentColor" stroke-width="1.5"/><text x="20" y="99" font-weight="600">Shed panel: 100A main breaker, 24 spaces</text><text x="20" y="113">Main = building disconnect · ground rods at the shed</text>');
+    o.push('<line x1="40" y1="118" x2="40" y2="' + (y0 + rows.length * 26 - 10) + '" stroke="currentColor" stroke-width="4"/>');
+    rows.forEach(function (p, i) {
+      var y = y0 + i * 26, col = '#' + p.color.toString(16).padStart(6, '0');
+      o.push('<line x1="40" y1="' + (y + 6) + '" x2="64" y2="' + (y + 6) + '" stroke="currentColor"/>');
+      o.push('<rect x="64" y="' + (y - 2) + '" width="16" height="16" rx="2" fill="' + col + '"/>');
+      o.push('<text x="86" y="' + (y + 10) + '"><tspan font-weight="600">' + esc(p.slot.label) + '</tspan>  ' + p.c.a + 'A ' + (p.c.v === 240 ? '2P' : '1P') + (p.gfci ? ' GFCI' : '') +
+        ' · ' + p.gauge + '/' + (p.c.v === 240 ? '2' : '2') + ' · ' + esc(p.c.name) + ' · ' + p.ft + ' ft</text>');
+    });
+    o.push('</svg>');
+    return o.join('');
+  }
+  function materials(plan) {
+    var rows = [];
+    Object.keys(plan.cable).sort().forEach(function (k) {
+      var g = k.split('/')[0], cond = k.split('/')[1];
+      rows.push([g + '/' + cond + ' NM-B with ground' + (k.indexOf('travelers') >= 0 ? ', 3-way travelers' : ''), Math.ceil(plan.cable[k] / 25) * 25 + ' ft']);
+    });
+    var cnt = { '110': 0, '220': 0, 'sp': 0, '3w': 0, 'light': 0 };
+    items.forEach(function (g) { if (isDev(g)) cnt[g.userData.dev]++; });
+    var b1 = {}, b2 = {};
+    plan.circuits.forEach(function (p) {
+      var key = p.c.a + 'A' + (p.gfci ? ' GFCI' : '');
+      if (p.c.v === 240) b2[key] = (b2[key] || 0) + 1; else b1[key] = (b1[key] || 0) + 1;
+    });
+    if (cnt['110']) rows.push(['20A duplex receptacles, NEMA 5-20R', cnt['110']]);
+    if (cnt['220']) rows.push(['20A 240V receptacles, NEMA 6-20R', cnt['220']]);
+    if (cnt.sp) rows.push(['Single-pole switches', cnt.sp]);
+    if (cnt['3w']) rows.push(['3-way switches', cnt['3w']]);
+    rows.push(['1-gang boxes', cnt['110'] + cnt.sp + cnt['3w']]);
+    if (cnt['220']) rows.push(['4″ square boxes with 1-device covers', cnt['220']]);
+    if (cnt.light) rows.push(['8′ LED strip fixtures', cnt.light]);
+    Object.keys(b1).forEach(function (k) { rows.push(['1-pole breaker ' + k, b1[k]]); });
+    Object.keys(b2).forEach(function (k) { rows.push(['2-pole breaker ' + k, b2[k]]); });
+    rows.push(['Panel: 100A main breaker, 24 spaces, separate neutral and ground bars', 1]);
+    rows.push(['Ground rods, clamps and grounding electrode conductor', '2 rods']);
+    return rows;
+  }
+  var NOTES = [
+    'Planning drawing only. Not for permit or construction.',
+    'Massachusetts: permits issued after April 24, 2026 fall under the 2026 Massachusetts Electrical Code (the 2026 NEC with state amendments). Confirm the details with the Lunenburg wiring inspector.',
+    'GFCI: every receptacle circuit is shown with GFCI breakers, 120V and 240V. Recent NEC editions require GFCI on receptacles in accessory buildings. Motors can nuisance-trip some GFCIs; ask the inspector.',
+    'Outbuilding feeder: 4 wires (2 hots, neutral, ground). Keep neutral and ground separate in the shed panel, and drive a grounding electrode (ground rods) at the shed. The shed panel\'s main breaker serves as the building disconnect.',
+    'The 50A feeder needs about 6 AWG copper. The existing wire is unverified, so check its size and type before relying on 50A.',
+    'Breaker sizes for the saw, planer, shaper and dust collector come from their nameplate amps; confirm each manual\'s recommended circuit. Size the mini split from its nameplate MCA/MOP; many need a local disconnect or are hardwired.',
+    'Cable is routed through holes bored in the studs: receptacle runs at about 16″ and switch and light runs near the top plate. Keep holes 1¼″ from the stud face or add nail plates. Exposed cable on open framing may need protection where it can be damaged.',
+    'In Massachusetts, electrical permits are generally pulled by a licensed electrician.'
+  ];
+  function renderDrawer() {
+    var el = document.getElementById('wd-body'), plan = wirePlan;
+    if (!plan || document.getElementById('wd').hidden) return;
+    var h = [];
+    h.push('<p class="warnb">Planning drawing only. Not for permit or construction.</p>');
+    h.push('<h3>Feed and panel</h3><dl><dt>Feeder</dt><dd>50A 240V, 4-wire (assumed)</dd><dt>Panel</dt><dd>100A main, 24 spaces</dd><dt>Spaces used</dt><dd>' + plan.spaces + ' of ' + PANEL_SPACES + '</dd></dl>');
+    h.push('<h3>Estimated peak load</h3><p class="sub">One 240V machine at a time, plus dust collector, mini split, microwave and fridge, lights, and 1,500 VA of hand tools.</p>');
+    h.push('<div class="legs"><span>Leg A</span>' + ampsBar(plan.legA) + '<b>' + plan.legA.toFixed(0) + 'A</b><span>Leg B</span>' + ampsBar(plan.legB) + '<b>' + plan.legB.toFixed(0) + 'A</b></div>');
+    h.push('<p class="sub">Against a 50A feeder; 40A (80%) is the comfortable limit for long runs.</p>');
+    if (plan.warn.length) h.push('<ul class="warns">' + plan.warn.map(function (w) { return '<li>' + esc(w) + '</li>'; }).join('') + '</ul>');
+    h.push('<h3>Panel schedule</h3><div class="tblw"><table><thead><tr><th>Slot</th><th>Circuit</th><th>Breaker</th><th>Wire</th><th>Feeds</th><th>Cable</th></tr></thead><tbody>');
+    plan.circuits.slice().sort(function (a, b) { return (a.slot.slots[0] || 99) - (b.slot.slots[0] || 99); }).forEach(function (p) {
+      var col = '#' + p.color.toString(16).padStart(6, '0');
+      h.push('<tr data-c="' + p.c.id + '"><td><i class="sw" style="background:' + col + '"></i>' + esc(p.slot.label) + '</td>' +
+        '<td><input aria-label="Circuit name" data-name="' + p.c.id + '" value="' + esc(p.c.name) + '"></td>' +
+        '<td><select aria-label="Breaker" data-amps="' + p.c.id + '">' + [15, 20, 30].map(function (a) { return '<option' + (a === p.c.a ? ' selected' : '') + '>' + a + '</option>'; }).join('') + '</select>' +
+        '<span class="tiny">' + (p.c.v === 240 ? '2P 240V' : '1P 120V') + (p.gfci ? ' GFCI' : '') + '</span></td>' +
+        '<td>' + p.gauge + '/2' + (p.count['3w'] >= 2 ? ' + ' + p.gauge + '/3' : '') + '</td><td>' + esc(devSummary(p.count)) + '</td><td>' + p.ft + ' ft</td></tr>');
+    });
+    h.push('</tbody></table></div>');
+    h.push('<div class="addc"><button type="button" id="newc120">+ 120V circuit</button><button type="button" id="newc240">+ 240V circuit</button></div>');
+    h.push('<h3>One-line diagram</h3><div class="svgw">' + oneLineSVG(plan) + '</div>');
+    h.push('<h3>Materials (estimate)</h3><dl>' + materials(plan).map(function (r) { return '<dt>' + esc(r[0]) + '</dt><dd>' + esc(r[1]) + '</dd>'; }).join('') + '</dl>');
+    h.push('<p class="sub">Cable lengths follow the routes drawn in the model, plus about 1 ft per box, rounded up to 25 ft.</p>');
+    h.push('<h3>Notes</h3><ul class="notes">' + NOTES.slice(1).map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul>');
+    el.innerHTML = h.join('');
+    el.querySelectorAll('[data-name]').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        var before = snap(); circuitById(inp.getAttribute('data-name')).name = inp.value.trim() || 'Circuit'; commit(before); buildWiring();
+      });
+    });
+    el.querySelectorAll('[data-amps]').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        var before = snap(); circuitById(sel.getAttribute('data-amps')).a = +sel.value; commit(before); buildWiring();
+      });
+    });
+    el.querySelectorAll('tr[data-c]').forEach(function (tr) {
+      tr.addEventListener('click', function (e) {
+        if (/INPUT|SELECT|OPTION/.test(e.target.tagName)) return;
+        var dev = devicesOn(tr.getAttribute('data-c'))[0];
+        if (dev) { select(dev); buildWiring(); }
+      });
+    });
+    document.getElementById('newc120').addEventListener('click', function () { var b0 = snap(); newCircuit('New 120V circuit', 120, 20); commit(b0); buildWiring(); });
+    document.getElementById('newc240').addEventListener('click', function () { var b0 = snap(); newCircuit('New 240V circuit', 240, 20); commit(b0); buildWiring(); });
+  }
+  async function saveSchematic() {
+    if (!wirePlan) buildWiring();
+    renderer.render(scene, camera);
+    var img = ''; try { img = renderer.domElement.toDataURL('image/png'); } catch (e) {}
+    var plan = wirePlan, d = new Date().toISOString().slice(0, 10);
+    var rows = plan.circuits.slice().sort(function (a, b) { return (a.slot.slots[0] || 99) - (b.slot.slots[0] || 99); }).map(function (p) {
+      return '<tr><td>' + esc(p.slot.label) + '</td><td>' + esc(p.c.name) + '</td><td>' + p.c.a + 'A ' + (p.c.v === 240 ? '2P' : '1P') + (p.gfci ? ' GFCI' : '') + '</td><td>' + p.gauge + '/2' + (p.count['3w'] >= 2 ? ' + ' + p.gauge + '/3' : '') + '</td><td>' + esc(devSummary(p.count)) + '</td><td>' + p.ft + ' ft</td></tr>';
+    }).join('');
+    var html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Shed wiring plan ' + d + '</title><style>body{font-family:Arial,sans-serif;max-width:900px;margin:24px auto;padding:0 16px;color:#1b2725}' +
+      'h1{font-size:22px;margin:0 0 4px}h2{font-size:15px;margin:22px 0 6px;text-transform:uppercase;letter-spacing:.05em}.warn{border:2px solid #96560f;color:#96560f;padding:8px 12px;font-weight:700}' +
+      'table{border-collapse:collapse;width:100%;font-size:13px}th,td{border:1px solid #cdd5d1;padding:4px 6px;text-align:left}img{max-width:100%;border:1px solid #cdd5d1}li{margin:4px 0;font-size:13px}</style></head><body>' +
+      '<h1>Crack Shack: wiring plan</h1><p>Whitcomb workshop · 15′ 5″ × 27′ 4″ · Lunenburg, MA · ' + d + '</p>' +
+      '<p class="warn">PLANNING DRAWING ONLY. NOT FOR PERMIT OR CONSTRUCTION. Have a licensed electrician design and permit the installation.</p>' +
+      '<h2>Feed and panel</h2><p>Feeder 50A 240V, 4-wire (assumed, 6 AWG Cu; verify). Panel 100A main breaker, 24 spaces; ' + plan.spaces + ' used.</p>' +
+      '<p>Estimated peak (one 240V machine at a time + dedicated loads + lights + 1,500 VA): leg A ' + plan.legA.toFixed(0) + 'A, leg B ' + plan.legB.toFixed(0) + 'A.</p>' +
+      '<h2>One-line diagram</h2>' + oneLineSVG(plan).replace(/currentColor/g, '#1b2725') +
+      '<h2>Panel schedule</h2><table><tr><th>Slot</th><th>Circuit</th><th>Breaker</th><th>Wire</th><th>Feeds</th><th>Cable</th></tr>' + rows + '</table>' +
+      (img ? '<h2>Cable routes (view at time of export)</h2><img alt="Cable routes in the 3D model" src="' + img + '">' : '') +
+      '<h2>Materials (estimate)</h2><table>' + materials(plan).map(function (r) { return '<tr><td>' + esc(r[0]) + '</td><td>' + esc(r[1]) + '</td></tr>'; }).join('') + '</table>' +
+      '<h2>Notes</h2><ul>' + NOTES.map(function (n) { return '<li>' + esc(n) + '</li>'; }).join('') + '</ul></body></html>';
+    await saveText('shed-wiring-plan-' + d + '.html', html, 'text/html', 'Wiring plan', '.html');
+  }
+  document.getElementById('wiring').addEventListener('click', function () { setWiring(!wiringOn); });
+  document.getElementById('wd-close').addEventListener('click', function () { setWiring(false); });
+  document.getElementById('wd-save').addEventListener('click', saveSchematic);
 
   machines.forEach(measure);
   (function load() {
@@ -1810,6 +2412,9 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   });
   document.getElementById('add110').addEventListener('click', function () { addNew('110'); });
   document.getElementById('add220').addEventListener('click', function () { addNew('220'); });
+  document.getElementById('addsp').addEventListener('click', function () { addNew('sp'); });
+  document.getElementById('add3w').addEventListener('click', function () { addNew('3w'); });
+  document.getElementById('addlight').addEventListener('click', function () { addNew('light'); });
   document.addEventListener('click', function (e) {
     var more = document.getElementById('more');
     if (more.open && !more.contains(e.target)) more.open = false;
@@ -1824,7 +2429,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); if (!drag) redo(); return; }
     if (mod) return;
     if (k === 'r' && selected && !drag) { rotateSel(); e.preventDefault(); }
-    if ((e.key === 'Delete' || e.key === 'Backspace') && selected && selected.userData.outlet && !drag) { deleteSel(); e.preventDefault(); }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selected && isDev(selected) && !drag) { deleteSel(); e.preventDefault(); }
     if (e.key === 'Escape') { select(null); document.getElementById('more').open = false; }
   });
 
@@ -1880,7 +2485,11 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     select(g);
     var start = boxOf(g), ign = items.filter(function (o) { return o !== g && !isWall(o) === !isWall(g) && hit3(start, isWall(g) ? boxOf(o) : flat(boxOf(o))); });
     drag = { g: g, id: e.pointerId, before: snap(), o: obstacles(g, ign), ign: ign };
-    if (isWall(g)) {
+    if (isRoof(g)) {
+      var lp = new THREE.Plane(new THREE.Vector3(0, 1, 0), -g.position.y);
+      if (!ray.ray.intersectPlane(lp, hitP)) { drag = null; return; }
+      drag.plane = lp; drag.ox = g.position.x - hitP.x; drag.oz = g.position.z - hitP.z;
+    } else if (isWall(g)) {
       var h = wallHit(), st = stateOf(g);
       drag.oa = h && h.w === st.w ? st.a - h.a : 0;
       drag.oy = h && h.w === st.w ? st.y - h.y : -(g.userData.lr.y1 - g.userData.lr.y0) / 2;
@@ -1900,6 +2509,23 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (e.pointerId !== drag.id) return;
     aim(e);
     var g = drag.g;
+    if (isRoof(g)) {
+      if (!ray.ray.intersectPlane(drag.plane, hitP)) return;
+      var tx = Math.round(hitP.x + drag.ox), tz = Math.round(hitP.z + drag.oz - 48 + HL) - HL + 48;
+      if (Math.abs(tx) < 12) tx = (tx < 0 || (tx === 0 && g.position.x < 0)) ? -12 : 12;
+      tx = Math.max(-88, Math.min(88, tx)); tz = Math.max(-HL + 48, Math.min(HL - 48, tz));
+      var cur = stateOf(g);
+      if (!blocked(g, { x: tx, z: tz }, drag.o)) apply(g, { x: tx, z: tz });
+      else {
+        // step 1" at a time toward the target, so a light stops flush against its neighbor
+        var cx = cur.x, cz = cur.z, sz = Math.sign(tz - cz), sx = Math.sign(tx - cx);
+        while (sz && cz !== tz && !blocked(g, { x: cx, z: cz + sz }, drag.o)) cz += sz;
+        while (sx && cx !== tx && !blocked(g, { x: cx + sx, z: cz }, drag.o)) cx += sx;
+        apply(g, { x: cx, z: cz });
+      }
+      updatePanel();
+      return;
+    }
     if (!isWall(g)) {
       if (!ray.ray.intersectPlane(floorPlane, hitP)) return;
       var t = snapFloor(g, hitP.x + drag.ox, hitP.z + drag.oz, g.userData.r);   // 1" grid
@@ -1932,6 +2558,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     var before = drag.before;
     drag = null; controls.enabled = true; stage.style.cursor = '';
     commit(before);
+    if (wiringOn) buildWiring();
   }
   window.addEventListener('pointerup', endDrag);
   window.addEventListener('pointercancel', endDrag);
