@@ -59,67 +59,66 @@
   #stage { position: absolute; inset: 0; }
   #stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 
-  .spec {
-    position: absolute; top: 12px; left: 16px;
-    width: min(300px, calc(100% - 32px));
-    max-height: calc(100% - 190px);
-    overflow: auto;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-  }
-  .spec summary {
-    list-style: none; cursor: pointer;
-    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
-    padding: 10px 14px;
-  }
-  .spec summary::-webkit-details-marker { display: none; }
-  .spec h1 {
-    margin: 0; font-family: var(--font-display); font-weight: 600;
-    font-size: 22px; letter-spacing: .02em; text-transform: uppercase; text-wrap: balance;
-  }
-  .spec summary span { color: var(--muted); font-size: 13px; white-space: nowrap; }
-  .spec[open] summary span.closed, .spec:not([open]) summary span.opened { display: none; }
-  .spec .body { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 10px; }
-  .spec h2 {
-    margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
-  }
-  .spec h2.est { color: var(--est); }
-  .spec dl { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; }
-  .spec dt { color: var(--muted); }
-  .spec dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
-  .spec p { margin: 0; color: var(--muted); font-size: 13px; }
-
-  .controls {
-    position: absolute; left: 16px; right: 16px; bottom: 12px;
-    display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
+  /* One floating toolbar; everything optional lives in the More menu. */
+  .bar {
+    position: absolute; top: 12px; left: 16px; right: 16px;
+    display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
     pointer-events: none;
   }
-  .row {
-    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
-    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
-    padding: 6px 8px; pointer-events: auto; max-width: 100%;
+  .grp {
+    display: flex; gap: 2px; align-items: center; pointer-events: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 3px;
   }
-  .row .lbl {
-    font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
-    color: var(--muted); padding: 0 4px;
+  .brand {
+    font-family: var(--font-display); font-weight: 600; font-size: 18px; letter-spacing: .04em;
+    text-transform: uppercase; padding: 0 10px 0 8px; white-space: nowrap;
   }
-  button {
+  button, .more summary {
     font: 500 14px/1 var(--font-body);
     color: var(--ink); background: transparent;
-    border: 1px solid var(--line); border-radius: 6px;
-    padding: 8px 10px; cursor: pointer;
+    border: 0; border-radius: 6px;
+    padding: 8px 11px; cursor: pointer; white-space: nowrap;
   }
-  button:hover { border-color: var(--accent); }
-  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-  button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-  .msg { font-size: 13px; color: var(--accent); padding: 0 4px; order: 9; }
-  .msg.bad { color: var(--est); }
-  .hint { color: var(--muted); font-size: 13px; padding: 0 2px; pointer-events: none; }
+  button:hover, .more summary:hover { background: var(--bg); }
+  button:focus-visible, .more summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+  button:disabled { color: var(--muted); opacity: .45; cursor: default; background: transparent; }
+  button.icon { font-size: 17px; padding: 6px 10px; }
+  .more { position: relative; }
+  .more summary { list-style: none; display: block; }
+  .more summary::-webkit-details-marker { display: none; }
+  .more[open] summary { background: var(--bg); }
+  .menu {
+    position: absolute; top: calc(100% + 8px); left: -4px; z-index: 5;
+    width: min(270px, calc(100vw - 32px)); max-height: calc(100vh - 140px); overflow: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.12);
+  }
+  .menu h2 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .menu h2.est { color: var(--est); }
+  .menu .toggles { display: flex; flex-wrap: wrap; gap: 4px; }
+  .menu .toggles button { border: 1px solid var(--line); padding: 7px 9px; font-size: 13px; }
+  .menu dl { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 3px 12px; font-size: 14px; }
+  .menu dt { color: var(--muted); }
+  .menu dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+  .menu p { margin: 0; color: var(--muted); font-size: 13px; }
+  .hint {
+    position: absolute; left: 16px; bottom: 12px; color: var(--muted); font-size: 13px;
+    pointer-events: none; text-shadow: 0 0 6px var(--bg);
+  }
+  .hint kbd { font: 600 12px var(--font-body); border: 1px solid var(--line); border-radius: 4px; padding: 1px 5px; background: var(--panel); }
+  .toast {
+    position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%);
+    background: var(--ink); color: var(--panel); font-size: 14px; border-radius: 8px; padding: 8px 14px;
+    max-width: calc(100% - 32px); text-align: center;
+  }
+  .toast[hidden] { display: none; }
+  .toast.bad { background: var(--est); color: #fff; }
   .sel {
-    position: absolute; top: 12px; right: 16px;
+    position: absolute; top: 64px; right: 16px;
     width: min(290px, calc(100% - 32px));
-    max-height: calc(100% - 230px); overflow: auto;
+    max-height: calc(100% - 120px); overflow: auto;
     background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent);
     border-radius: 8px; padding: 10px 14px 12px;
     display: flex; flex-direction: column; gap: 8px;
@@ -132,12 +131,15 @@
   }
   .sel .model { margin: 0; color: var(--muted); font-size: 13px; }
   .sel h3 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .sel dl[hidden] { display: none; }
   .sel dl { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 3px 12px; }
   .sel dt { color: var(--muted); }
   .sel dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
   .sel dd.tight { color: var(--est); }
   .sel .note { margin: 0; color: var(--muted); font-size: 13px; }
-  .sel .x { padding: 4px 9px; font-size: 16px; }
+  .sel .x { padding: 4px 9px; font-size: 18px; }
+  .sel .acts { display: flex; gap: 6px; }
+  .sel .acts button { border: 1px solid var(--line); }
   .params { display: grid; grid-template-columns: 1fr 72px auto; gap: 6px 8px; align-items: center; }
   .params[hidden] { display: none; }
   .params label { color: var(--muted); font-size: 14px; }
@@ -147,9 +149,10 @@
   }
   .params input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   .params span { color: var(--muted); font-size: 13px; }
-  .params button { grid-column: 1 / -1; justify-self: start; }
-  @media (max-width: 700px) {
-    .sel { top: 64px; max-height: calc(100% - 300px); }
+  .params button { grid-column: 1 / -1; justify-self: start; border: 1px solid var(--line); }
+  @media (max-width: 760px) {
+    .sel { top: auto; bottom: 44px; right: 16px; max-height: 45%; }
+    .brand { display: none; }
   }
   #fail {
     position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
@@ -157,42 +160,13 @@
   }
   @media (max-width: 520px) {
     .hint { display: none; }
-    button { padding: 8px 9px; }
+    button, .more summary { padding: 8px 8px; }
   }
 </style>
 </head>
 <body>
 <div id="stage"></div>
 <div id="fail">This browser could not start 3D graphics. Open the page in a current version of Chrome, Safari, Edge or Firefox.</div>
-
-<details class="spec" id="spec">
-  <summary>
-    <h1>Shed interior</h1>
-    <span class="closed">Show sizes</span><span class="opened">Hide</span>
-  </summary>
-  <div class="body">
-    <h2>Measured</h2>
-    <dl>
-      <dt>Width, plate to plate</dt><dd>15′ 5″</dd>
-      <dt>Length, plate to plate</dt><dd>27′ 4″</dd>
-      <dt>Floor area</dt><dd>421 sq ft</dd>
-      <dt>Stud length</dt><dd>7′ 0″</dd>
-      <dt>Stud spacing</dt><dd>16″ o.c.</dd>
-      <dt>Double door</dt><dd>6′ centered</dd>
-    </dl>
-    <h2 class="est">Estimated from photos</h2>
-    <dl>
-      <dt>Top of wall plates</dt><dd>7′ 4½″</dd>
-      <dt>Roof pitch</dt><dd>10 / 12</dd>
-      <dt>Peak, underside</dt><dd>14′ 0″</dd>
-      <dt>Truss cross tie</dt><dd>11′ 9″</dd>
-      <dt>Dormer wall top</dt><dd>9′ 6½″</dd>
-    </dl>
-    <p>Window, single door, dormer and truss positions are approximate.</p>
-    <h2>Machines</h2>
-    <p>Overall sizes are the published figures. Mobile bases are not modeled. Machines can overlap each other; check clearances.</p>
-  </div>
-</details>
 
 <section class="sel" id="sel" hidden aria-live="polite">
   <div class="head">
@@ -203,37 +177,58 @@
   <dl id="sel-dims"></dl>
   <h3>Clearance to walls</h3>
   <dl id="sel-clear"></dl>
-  <p class="note" id="sel-note"></p>
   <div class="params" id="sel-params" hidden></div>
-  <div><button type="button" id="sel-rot">Rotate 90°</button></div>
+  <div class="acts"><button type="button" id="sel-rot">Rotate 90° (R)</button></div>
+  <p class="note" id="sel-note"></p>
 </section>
 
-<div class="controls">
-  <div class="hint">Drag a machine to move it; press R to rotate it. Drag empty space to orbit. Scroll or pinch to zoom.</div>
-  <div class="row" role="group" aria-label="Machines" id="mrow">
-    <span class="lbl">Machines</span>
+<div class="bar">
+  <div class="grp"><span class="brand">Crack Shack</span></div>
+  <div class="grp" role="group" aria-label="View">
+    <button type="button" data-view="over" title="3D overview">3D</button>
+    <button type="button" data-view="plan" title="Top-down floor plan">Top</button>
+    <button type="button" data-view="inside" title="Stand inside; click again to turn around">Inside</button>
   </div>
-  <div class="row" role="group" aria-label="Layout files" id="frow">
-    <span class="lbl">Layout</span>
-    <span class="msg" id="file-msg" role="status" hidden></span>
+  <div class="grp" role="group" aria-label="Edit">
+    <button type="button" class="icon" id="undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
+    <button type="button" class="icon" id="redo" title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
   </div>
-  <div class="row" role="group" aria-label="Views">
-    <span class="lbl">View</span>
-    <button type="button" id="v-over" data-view="over">Overview</button>
-    <button type="button" id="v-plan" data-view="plan">Floor plan</button>
-    <button type="button" id="v-front" data-view="front">Inside, facing double doors</button>
-    <button type="button" id="v-back" data-view="back">Inside, facing back</button>
-  </div>
-  <div class="row" role="group" aria-label="Layers">
-    <span class="lbl">Show</span>
-    <button type="button" id="l-roof" data-layer="roofSkin" aria-pressed="true">Roof</button>
-    <button type="button" id="l-rframe" data-layer="roofFrame" aria-pressed="true">Roof framing</button>
-    <button type="button" id="l-wall" data-layer="wallSkin" aria-pressed="true">Wall sheathing</button>
-    <button type="button" id="l-grid" data-layer="grid" aria-pressed="true">1 ft grid</button>
-    <button type="button" id="l-dims" data-layer="dims" aria-pressed="true">Dimensions</button>
-    <button type="button" id="l-mach" data-layer="machines" aria-pressed="true">Machines</button>
+  <div class="grp" role="group" aria-label="Layout file">
+    <button type="button" id="f-save" title="Save this layout to a file">Save</button>
+    <button type="button" id="f-open" title="Open a saved layout file">Open</button>
+    <input type="file" id="layout-file" accept=".json,application/json" hidden>
+    <details class="more" id="more">
+      <summary>More</summary>
+      <div class="menu">
+        <h2>Show</h2>
+        <div class="toggles">
+          <button type="button" data-layer="labels" aria-pressed="false">Labels</button>
+          <button type="button" data-layer="grid" aria-pressed="true">Grid</button>
+          <button type="button" data-layer="dims" aria-pressed="false">Dimensions</button>
+          <button type="button" data-layer="wallSkin" aria-pressed="true">Walls</button>
+          <button type="button" data-layer="roofSkin" aria-pressed="true">Roof</button>
+          <button type="button" data-layer="roofFrame" aria-pressed="true">Rafters</button>
+        </div>
+        <h2>Layout</h2>
+        <div class="toggles"><button type="button" id="f-default">Back to floor-plan layout</button></div>
+        <h2>Shed, measured</h2>
+        <dl>
+          <dt>Floor</dt><dd>15′ 5″ × 27′ 4″</dd>
+          <dt>Studs</dt><dd>7′ 0″ at 16″ o.c.</dd>
+          <dt>Double door</dt><dd>6′ centered</dd>
+        </dl>
+        <h2 class="est">Estimated from photos</h2>
+        <dl>
+          <dt>Top of wall</dt><dd>7′ 4½″</dd>
+          <dt>Roof</dt><dd>10/12, peak 14′</dd>
+        </dl>
+        <p>Machines snap to the 1″ grid and can't overlap. Mobile bases aren't modeled.</p>
+      </div>
+    </details>
   </div>
 </div>
+<div class="hint">Drag to move · <kbd>R</kbd> rotate · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</div>
+<div class="toast" id="toast" role="status" hidden></div>
 
 <script src="vendor/three.min.js"></script>
 <script src="vendor/OrbitControls.js"></script>
@@ -1031,18 +1026,25 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   controls.minDistance = 10;
   controls.maxDistance = 1400;
 
+  // Layer toggles. "labels" is virtual: name tags over machines (the selected one always shows).
+  var showLabels = false;
   function setLayer(name, on) {
-    shed.layers[name].visible = on;
+    if (name === 'labels') { showLabels = on; updateLabels(); }
+    else shed.layers[name].visible = on;
     var b = document.querySelector('[data-layer="' + name + '"]');
     if (b) b.setAttribute('aria-pressed', on ? 'true' : 'false');
   }
+  setLayer('dims', false);
   var views = {
-    over:  { pos: [-330, 250, -420], tgt: [0, 45, 10] },
+    over:  { pos: [-330, 250, -420], tgt: [0, 45, 10], show: ['roofFrame'] },
     plan:  { pos: [0, 600, 1], tgt: [0, 0, 0], hide: ['roofFrame'] },
-    front: { pos: [0, 66, 138], tgt: [0, 62, 60], show: ['roofFrame', 'roofSkin', 'wallSkin'] },
-    back:  { pos: [0, 66, -138], tgt: [0, 62, -60], show: ['roofFrame', 'roofSkin', 'wallSkin'] }
+    front: { pos: [0, 66, 138], tgt: [0, 62, 60], show: ['roofFrame'] },
+    back:  { pos: [0, 66, -138], tgt: [0, 62, -60], show: ['roofFrame'] }
   };
+  var curView = 'over';
   function setView(name) {
+    if (name === 'inside') name = curView === 'front' ? 'back' : 'front';
+    curView = name;
     var v = views[name];
     camera.position.set(v.pos[0], v.pos[1], v.pos[2]);
     controls.target.set(v.tgt[0], v.tgt[1], v.tgt[2]);
@@ -1050,6 +1052,10 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     (v.show || []).forEach(function (l) { setLayer(l, true); });
     if (name === 'plan') fitPlan();
     controls.update();
+    var key = name === 'front' || name === 'back' ? 'inside' : name;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-view]'), function (b) {
+      b.setAttribute('aria-pressed', b.getAttribute('data-view') === key ? 'true' : 'false');
+    });
   }
   function fitPlan() {
     // back the camera off until the whole floor fits the current viewport
@@ -1058,7 +1064,6 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     var needH = (shed.size.W + 60) / 2 / (Math.tan(vfov / 2) * a);
     camera.position.set(0, Math.max(needV, needH), 1);
   }
-
   Array.prototype.forEach.call(document.querySelectorAll('[data-view]'), function (b) {
     b.addEventListener('click', function () { setView(b.getAttribute('data-view')); });
   });
@@ -1112,6 +1117,96 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   var byId = {};
   machines.forEach(function (g) { byId[g.userData.machine.id] = g; });
 
+  /* ---- footprints: cached local rectangle, rotated analytically ---- */
+  var EPS = 0.001;
+  // pieces that are meant to touch/overlap (the outfeed bolts under the saw's fence)
+  var PAIRS = { 'saw|outfeed': 1, 'outfeed|saw': 1 };
+  function localRect(g) {
+    g.updateMatrixWorld(true);
+    var b = new THREE.Box3();
+    g.children.forEach(function (o) {
+      if (o.isMesh) { o.geometry.computeBoundingBox(); b.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrix)); }
+    });
+    g.userData.lr = { x0: b.min.x, x1: b.max.x, z0: b.min.z, z1: b.max.z };
+  }
+  function rectAt(g, x, z, r) {
+    var L = g.userData.lr;
+    switch (((r % 4) + 4) % 4) {
+      case 0: return { x0: x + L.x0, x1: x + L.x1, z0: z + L.z0, z1: z + L.z1 };
+      case 1: return { x0: x + L.z0, x1: x + L.z1, z0: z - L.x1, z1: z - L.x0 };
+      case 2: return { x0: x - L.x1, x1: x - L.x0, z0: z - L.z1, z1: z - L.z0 };
+      default: return { x0: x - L.z1, x1: x - L.z0, z0: z + L.x0, z1: z + L.x1 };
+    }
+  }
+  function rectOf(g) { return rectAt(g, g.position.x, g.position.z, g.userData.r); }
+  function hit(a, b) { return a.x0 < b.x1 - EPS && a.x1 > b.x0 + EPS && a.z0 < b.z1 - EPS && a.z1 > b.z0 + EPS; }
+  function inWalls(a) { return a.x0 >= -HW - EPS && a.x1 <= HW + EPS && a.z0 >= -HL - EPS && a.z1 <= HL + EPS; }
+  function others(g, ignore) {
+    var id = g.userData.machine.id, out = [];
+    machines.forEach(function (o) {
+      if (o === g || PAIRS[id + '|' + o.userData.machine.id] || (ignore && ignore.indexOf(o) >= 0)) return;
+      out.push(rectOf(o));
+    });
+    return out;
+  }
+  function free(g, rect, obs) {
+    if (!inWalls(rect)) return false;
+    for (var i = 0; i < obs.length; i++) if (hit(rect, obs[i])) return false;
+    return true;
+  }
+  // grid: whole inches measured from the double-door / entry-wall corner
+  function snapAxis(lo, hi, wall) {
+    var a = Math.round(lo + wall) - (lo + wall), b = Math.round(hi + wall) - (hi + wall);
+    return Math.abs(a) <= Math.abs(b) ? a : b;
+  }
+  function snapPos(g, x, z, r) {
+    var R = rectAt(g, x, z, r);
+    return { x: x + snapAxis(R.x0, R.x1, HW), z: z + snapAxis(R.z0, R.z1, HL) };
+  }
+  // Slide from the current spot toward (tx, tz) along x then z, stopping flush at walls and machines.
+  function slide(g, tx, tz, obs) {
+    var x = g.position.x, z = g.position.z, r = g.userData.r;
+    function sweep(axis, d) {
+      var R = rectAt(g, x, z, r), lim;
+      if (axis === 'x') {
+        lim = d > 0 ? HW - R.x1 : -HW - R.x0;
+        obs.forEach(function (o) {
+          if (!(R.z0 < o.z1 - EPS && R.z1 > o.z0 + EPS)) return;
+          if (d > 0 && o.x0 >= R.x1 - EPS) lim = Math.min(lim, o.x0 - R.x1);
+          if (d < 0 && o.x1 <= R.x0 + EPS) lim = Math.max(lim, o.x1 - R.x0);
+        });
+        return d > 0 ? Math.max(0, Math.min(d, lim)) : Math.min(0, Math.max(d, lim));
+      }
+      lim = d > 0 ? HL - R.z1 : -HL - R.z0;
+      obs.forEach(function (o) {
+        if (!(R.x0 < o.x1 - EPS && R.x1 > o.x0 + EPS)) return;
+        if (d > 0 && o.z0 >= R.z1 - EPS) lim = Math.min(lim, o.z0 - R.z1);
+        if (d < 0 && o.z1 <= R.z0 + EPS) lim = Math.max(lim, o.z1 - R.z0);
+      });
+      return d > 0 ? Math.max(0, Math.min(d, lim)) : Math.min(0, Math.max(d, lim));
+    }
+    for (var k = 0; k < 2; k++) {
+      x += sweep('x', tx - x);
+      z += sweep('z', tz - z);
+    }
+    return { x: x, z: z };
+  }
+  // nearest free, grid-snapped spot within `reach` inches of (x, z)
+  function findFree(g, x, z, r, obs, reach) {
+    var s0 = snapPos(g, x, z, r);
+    if (free(g, rectAt(g, s0.x, s0.z, r), obs)) return s0;
+    for (var d = 1; d <= reach; d++) {
+      var best = null, bd = 1e9;
+      for (var i = -d; i <= d; i++) for (var j = -d; j <= d; j++) {
+        if (Math.max(Math.abs(i), Math.abs(j)) !== d) continue;
+        var cx = s0.x + i, cz = s0.z + j, dist = i * i + j * j;
+        if (dist < bd && free(g, rectAt(g, cx, cz, r), obs)) { best = { x: cx, z: cz }; bd = dist; }
+      }
+      if (best) return best;
+    }
+    return null;
+  }
+
   function place(g, p) {
     g.userData.r = ((p.r % 4) + 4) % 4;
     g.rotation.y = g.userData.r * Math.PI / 2;
@@ -1119,32 +1214,28 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     clampInside(g);
   }
   function footprint(g) {
-    g.updateMatrixWorld(true);
-    var b = new THREE.Box3();
-    g.traverse(function (o) {
-      if (o.isMesh) { o.geometry.computeBoundingBox(); b.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)); }
-    });
-    return b;
+    var R = rectOf(g);
+    return new THREE.Box3(new THREE.Vector3(R.x0, 0, R.z0), new THREE.Vector3(R.x1, g.userData.top || 1, R.z1));
   }
   function clampInside(g) {
-    var b = footprint(g), dx = 0, dz = 0;
-    if (b.min.x < -HW) dx = -HW - b.min.x; else if (b.max.x > HW) dx = HW - b.max.x;
-    if (b.min.z < -HL) dz = -HL - b.min.z; else if (b.max.z > HL) dz = HL - b.max.z;
+    var R = rectOf(g), dx = 0, dz = 0;
+    if (R.x0 < -HW) dx = -HW - R.x0; else if (R.x1 > HW) dx = HW - R.x1;
+    if (R.z0 < -HL) dz = -HL - R.z0; else if (R.z1 > HL) dz = HL - R.z1;
     g.position.x += dx; g.position.z += dz;
   }
   function collect() {
     var out = {};
     machines.forEach(function (g) {
       var id = g.userData.machine.id;
-      out[id] = { x: g.position.x, z: g.position.z, r: g.userData.r };
-      if (g.userData.params) out[id].p = g.userData.params;
+      out[id] = { x: +g.position.x.toFixed(3), z: +g.position.z.toFixed(3), r: g.userData.r };
+      if (g.userData.params) out[id].p = JSON.parse(JSON.stringify(g.userData.params));
     });
     return out;
   }
   function save() {
     try { localStorage.setItem(KEY, JSON.stringify(collect())); } catch (e) {}
   }
-  // Apply a saved layout; pieces missing from it go to the default spot.
+  // Set every piece from a layout object; pieces missing from it go to the default spot.
   function applyLayout(saved) {
     machines.forEach(function (g) {
       var id = g.userData.machine.id, sv = saved && saved[id];
@@ -1157,6 +1248,32 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     save();
     if (selected) select(selected);
   }
+
+  /* ---- undo / redo: whole-layout snapshots ---- */
+  var undoStack = [], redoStack = [];
+  function snap() { return JSON.stringify(collect()); }
+  function commit(before) {
+    if (before === snap()) return;
+    undoStack.push(before); if (undoStack.length > 200) undoStack.shift();
+    redoStack.length = 0;
+    save(); syncHistory();
+  }
+  function restore(state) { applyLayout(JSON.parse(state)); }
+  function undo() {
+    if (!undoStack.length) { toast('Nothing to undo.'); return; }
+    redoStack.push(snap()); restore(undoStack.pop()); syncHistory();
+  }
+  function redo() {
+    if (!redoStack.length) { toast('Nothing to redo.'); return; }
+    undoStack.push(snap()); restore(redoStack.pop()); syncHistory();
+  }
+  function syncHistory() {
+    document.getElementById('undo').disabled = !undoStack.length;
+    document.getElementById('redo').disabled = !redoStack.length;
+  }
+  document.getElementById('undo').addEventListener('click', undo);
+  document.getElementById('redo').addEventListener('click', redo);
+
   function load() {
     var saved = null;
     try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
@@ -1166,11 +1283,11 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       place(g, sv || DEFAULTS[id]);
     });
   }
-  // ----- layout files -----
-  function flash(msg, bad) {
-    var el = document.getElementById('file-msg');
+  // ----- messages and layout files -----
+  function toast(msg, bad) {
+    var el = document.getElementById('toast');
     el.textContent = msg; el.classList.toggle('bad', !!bad); el.hidden = false;
-    clearTimeout(flash.t); flash.t = setTimeout(function () { el.hidden = true; }, 5000);
+    clearTimeout(toast.t); toast.t = setTimeout(function () { el.hidden = true; }, 3500);
   }
   async function saveFile() {
     var data = JSON.stringify({ app: 'crack-shack-layout', version: 1, savedAt: new Date().toISOString(), machines: collect() }, null, 2);
@@ -1179,7 +1296,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       if (window.showSaveFilePicker) {
         var h = await window.showSaveFilePicker({ suggestedName: name, types: [{ description: 'Shop layout', accept: { 'application/json': ['.json'] } }] });
         var w = await h.createWritable(); await w.write(data); await w.close();
-        flash('Saved ' + h.name + '.');
+        toast('Saved ' + h.name + '.');
         return;
       }
     } catch (e) {
@@ -1190,9 +1307,9 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       a.href = URL.createObjectURL(new Blob([data], { type: 'application/json' }));
       a.download = name; document.body.appendChild(a); a.click(); a.remove();
       setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
-      flash('Saving ' + name + '.');
+      toast('Saving ' + name + '.');
     } catch (e) {
-      flash('This window can\'t save files. Use the desktop app to save layouts.', true);
+      toast('This window can\'t save files. Use the desktop app to save layouts.', true);
     }
   }
   function openFile(file) {
@@ -1202,19 +1319,23 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       try { obj = JSON.parse(rd.result); } catch (e) { obj = null; }
       var m = obj && (obj.machines || obj);
       if (!m || typeof m !== 'object' || !machines.some(function (g) { return m[g.userData.machine.id]; })) {
-        flash('That file isn\'t a shop layout. Pick a .json saved from this app.', true);
+        toast('That file isn\'t a shop layout. Pick a .json saved from this app.', true);
         return;
       }
-      applyLayout(m);
-      flash('Opened ' + file.name + '.');
+      var before = snap();
+      applyLayout(m); commit(before);
+      toast('Opened ' + file.name + '.');
     };
-    rd.onerror = function () { flash('Couldn\'t read that file.', true); };
+    rd.onerror = function () { toast('Couldn\'t read that file.', true); };
     rd.readAsText(file);
   }
   function rebuildMachine(g) {
     g.userData.rebuild();
-    if (g.userData.sprite) g.userData.sprite.position.y = topOf(g) + 10;
+    localRect(g);
+    g.userData.top = topOf(g);
+    if (g.userData.sprite) g.userData.sprite.position.y = g.userData.top + 10;
   }
+  machines.forEach(function (g) { localRect(g); g.userData.top = topOf(g); });
   load();
 
   function ftin(v) {
@@ -1230,6 +1351,9 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   scene.add(selBox);
   var selected = null;
   var panel = document.getElementById('sel');
+  function updateLabels() {
+    machines.forEach(function (g) { if (g.userData.sprite) g.userData.sprite.visible = showLabels || g === selected; });
+  }
 
   function updatePanel() {
     if (!selected) return;
@@ -1250,13 +1374,12 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     var m = g ? g.userData.machine : null;
     panel.hidden = !g;
     selBox.visible = !!g;
-    Array.prototype.forEach.call(document.querySelectorAll('[data-machine]'), function (b) {
-      b.setAttribute('aria-pressed', m && b.getAttribute('data-machine') === m.id ? 'true' : 'false');
-    });
+    updateLabels();
     if (!g) return;
     document.getElementById('sel-name').textContent = m.label;
     document.getElementById('sel-model').textContent = m.model;
     var dims = typeof m.dims === 'function' ? m.dims(g.userData.params) : m.dims;
+    document.getElementById('sel-dims').hidden = !!g.userData.params;
     document.getElementById('sel-dims').innerHTML = dims.map(function (d) { return '<dt>' + esc(d[0]) + '</dt><dd>' + esc(d[1]) + '</dd>'; }).join('');
     document.getElementById('sel-note').textContent = m.note;
     renderParams(g);
@@ -1270,66 +1393,82 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     box.hidden = !p;
     if (!p) { box.innerHTML = ''; return; }
     box.innerHTML = Object.keys(PLAB).map(function (k) {
-      return '<label for="p-' + k + '">' + PLAB[k] + '</label><input id="p-' + k + '" type="number" inputmode="decimal" step="0.5" min="' +
+      return '<label for="p-' + k + '">' + PLAB[k] + '</label><input id="p-' + k + '" type="number" inputmode="decimal" step="1" min="' +
         PLIM[k][0] + '" max="' + PLIM[k][1] + '" value="' + p[k] + '"><span>in</span>';
     }).join('') + '<button type="button" id="p-reset">Default sizes</button>';
     Object.keys(PLAB).forEach(function (k) {
       document.getElementById('p-' + k).addEventListener('change', function (e) {
         var v = parseFloat(e.target.value);
         if (!isFinite(v)) { e.target.value = p[k]; return; }
-        v = Math.min(PLIM[k][1], Math.max(PLIM[k][0], Math.round(v * 2) / 2));
+        v = Math.min(PLIM[k][1], Math.max(PLIM[k][0], Math.round(v)));
         e.target.value = v;
+        var before = snap();
         p[k] = v;
         if (p.lb < p.da + 6) { p.lb = p.da + 6; }
         if (p.la < p.db + 6) { p.la = p.db + 6; }
-        applyParams(g);
+        applyParams(g, before);
       });
     });
     document.getElementById('p-reset').addEventListener('click', function () {
+      var before = snap();
       g.userData.params = JSON.parse(JSON.stringify(DESK0));
-      applyParams(g); renderParams(g);
+      applyParams(g, before); renderParams(g);
     });
   }
-  function applyParams(g) {
-    rebuildMachine(g); clampInside(g); save();
+  function applyParams(g, before) {
+    var old = JSON.parse(before)[g.userData.machine.id];
+    rebuildMachine(g);
+    var spot = findFree(g, g.position.x, g.position.z, g.userData.r, others(g), 48);
+    if (!spot) {
+      g.userData.params = old.p; rebuildMachine(g); renderParams(g);
+      toast('No room for that size here. Move the desk or nearby machines first.', true);
+    } else {
+      var moved = Math.abs(spot.x - g.position.x) > 0.5 || Math.abs(spot.z - g.position.z) > 0.5;
+      g.position.x = spot.x; g.position.z = spot.z;
+      commit(before);
+      if (moved) toast('Moved the desk to the nearest spot where that size fits. Ctrl+Z to undo.');
+    }
     var m = g.userData.machine;
     document.getElementById('sel-dims').innerHTML = m.dims(g.userData.params).map(function (d) { return '<dt>' + esc(d[0]) + '</dt><dd>' + esc(d[1]) + '</dd>'; }).join('');
     updatePanel();
   }
+  // Rotate about the footprint center; if the new footprint doesn't fit, take the nearest free spot.
   function rotateSel() {
-    if (!selected) return;
-    selected.userData.r = (selected.userData.r + 1) % 4;
-    selected.rotation.y = selected.userData.r * Math.PI / 2;
-    clampInside(selected);
-    updatePanel(); save();
+    var g = selected;
+    if (!g) return;
+    var before = snap(), R = rectOf(g), cx = (R.x0 + R.x1) / 2, cz = (R.z0 + R.z1) / 2;
+    var nr = (g.userData.r + 1) % 4;
+    var N = rectAt(g, 0, 0, nr);
+    var spot = findFree(g, cx - (N.x0 + N.x1) / 2, cz - (N.z0 + N.z1) / 2, nr, others(g), 60);
+    if (!spot) { toast('Not enough room to rotate it here. Move it somewhere more open first.', true); return; }
+    g.userData.r = nr; g.rotation.y = nr * Math.PI / 2;
+    g.position.x = spot.x; g.position.z = spot.z;
+    updatePanel(); commit(before);
   }
 
-  var mrow = document.getElementById('mrow');
-  machines.forEach(function (g) {
-    var m = g.userData.machine, b = document.createElement('button');
-    b.type = 'button'; b.textContent = m.label;
-    b.setAttribute('data-machine', m.id); b.setAttribute('aria-pressed', 'false');
-    b.addEventListener('click', function () {
-      if (!mGroup.visible) setLayer('machines', true);
-      select(selected === g ? null : g);
-    });
-    mrow.appendChild(b);
-  });
-  var frow = document.getElementById('frow');
-  function fbtn(text, fn) { var b = document.createElement('button'); b.type = 'button'; b.textContent = text; b.addEventListener('click', fn); frow.appendChild(b); return b; }
-  var picker = document.createElement('input');
-  picker.type = 'file'; picker.accept = '.json,application/json'; picker.id = 'layout-file'; picker.hidden = true;
+  var picker = document.getElementById('layout-file');
   picker.addEventListener('change', function () { if (picker.files[0]) openFile(picker.files[0]); picker.value = ''; });
-  frow.appendChild(picker);
-  fbtn('Save layout…', saveFile);
-  fbtn('Open layout…', function () { picker.click(); });
-  fbtn('Default layout', function () { applyLayout(null); flash('Back to the floor-plan layout.'); });
+  document.getElementById('f-save').addEventListener('click', saveFile);
+  document.getElementById('f-open').addEventListener('click', function () { picker.click(); });
+  document.getElementById('f-default').addEventListener('click', function () {
+    var before = snap(); applyLayout(null); commit(before);
+    document.getElementById('more').open = false;
+    toast('Back to the floor-plan layout. Ctrl+Z to undo.');
+  });
+  document.addEventListener('click', function (e) {
+    var more = document.getElementById('more');
+    if (more.open && !more.contains(e.target)) more.open = false;
+  });
   document.getElementById('sel-close').addEventListener('click', function () { select(null); });
   document.getElementById('sel-rot').addEventListener('click', rotateSel);
   window.addEventListener('keydown', function (e) {
-    if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
-    if ((e.key === 'r' || e.key === 'R') && selected) { rotateSel(); e.preventDefault(); }
-    if (e.key === 'Escape') select(null);
+    if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+    var mod = e.ctrlKey || e.metaKey, k = (e.key || '').toLowerCase();
+    if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); if (!drag) undo(); return; }
+    if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); if (!drag) redo(); return; }
+    if (mod) return;
+    if (k === 'r' && selected && !drag) { rotateSel(); e.preventDefault(); }
+    if (e.key === 'Escape') { select(null); document.getElementById('more').open = false; }
   });
 
   var ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
@@ -1361,7 +1500,9 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     e.stopPropagation(); e.preventDefault();
     select(g);
     if (!ray.ray.intersectPlane(floorPlane, hitP)) return;
-    drag = { g: g, id: e.pointerId, ox: g.position.x - hitP.x, oz: g.position.z - hitP.z };
+    // machines already overlapping this one when the drag starts (e.g. from an old file) don't block it
+    var start = rectOf(g), ign = machines.filter(function (o) { return o !== g && hit(start, rectOf(o)); });
+    drag = { g: g, id: e.pointerId, ox: g.position.x - hitP.x, oz: g.position.z - hitP.z, before: snap(), obs: others(g, ign) };
     controls.enabled = false;
     stage.style.cursor = 'grabbing';
   }, true);
@@ -1373,21 +1514,23 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (e.pointerId !== drag.id) return;
     aim(e);
     if (!ray.ray.intersectPlane(floorPlane, hitP)) return;
-    drag.g.position.x = Math.round((hitP.x + drag.ox) * 2) / 2;   // half-inch steps
-    drag.g.position.z = Math.round((hitP.z + drag.oz) * 2) / 2;
-    clampInside(drag.g);
+    var t = snapPos(drag.g, hitP.x + drag.ox, hitP.z + drag.oz, drag.g.userData.r);   // 1" grid
+    var p = slide(drag.g, t.x, t.z, drag.obs);                                      // stops flush, never overlaps
+    drag.g.position.x = p.x; drag.g.position.z = p.z;
     updatePanel();
   });
   function endDrag(e) {
     if (!drag || e.pointerId !== drag.id) return;
+    var before = drag.before;
     drag = null; controls.enabled = true; stage.style.cursor = '';
-    save();
+    commit(before);
   }
   window.addEventListener('pointerup', endDrag);
   window.addEventListener('pointercancel', endDrag);
 
-  if (window.innerWidth > 700) document.getElementById('spec').open = true;
   setView('over');
+  syncHistory();
+  updateLabels();
 
   (function loop() {
     controls.update();
