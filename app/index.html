@@ -175,10 +175,10 @@
   </div>
   <p class="model" id="sel-model"></p>
   <dl id="sel-dims"></dl>
-  <h3>Clearance to walls</h3>
+  <h3 id="sel-clear-h">Clearance to walls</h3>
   <dl id="sel-clear"></dl>
   <div class="params" id="sel-params" hidden></div>
-  <div class="acts"><button type="button" id="sel-rot">Rotate 90° (R)</button></div>
+  <div class="acts"><button type="button" id="sel-rot">Rotate 90° (R)</button><button type="button" id="sel-del" hidden>Delete outlet</button></div>
   <p class="note" id="sel-note"></p>
 </section>
 
@@ -210,7 +210,11 @@
           <button type="button" data-layer="roofFrame" aria-pressed="true">Rafters</button>
         </div>
         <h2>Layout</h2>
-        <div class="toggles"><button type="button" id="f-default">Back to floor-plan layout</button></div>
+        <div class="toggles">
+          <button type="button" id="add110">Add 110V outlet</button>
+          <button type="button" id="add220">Add 220V outlet</button>
+          <button type="button" id="f-default">Back to default layout</button>
+        </div>
         <h2>Shed, measured</h2>
         <dl>
           <dt>Floor</dt><dd>15′ 5″ × 27′ 4″</dd>
@@ -222,12 +226,12 @@
           <dt>Top of wall</dt><dd>7′ 4½″</dd>
           <dt>Roof</dt><dd>10/12, peak 14′</dd>
         </dl>
-        <p>Machines snap to the 1″ grid and can't overlap. Mobile bases aren't modeled.</p>
+        <p>Floor pieces snap to the 1″ grid; wall pieces slide along and up the walls; outlets snap beside studs. Nothing can overlap. Mobile bases aren't modeled.</p>
       </div>
     </details>
   </div>
 </div>
-<div class="hint">Drag to move · <kbd>R</kbd> rotate · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</div>
+<div class="hint">Drag to move (wall pieces slide on walls) · <kbd>R</kbd> rotate · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</div>
 <div class="toast" id="toast" role="status" hidden></div>
 
 <script src="vendor/three.min.js"></script>
@@ -932,7 +936,170 @@ function buildMachines(THREE) {
       leg(p.db - 1.5, p.da - 1.5, Math.min(p.ha, p.hb));
       B(g, LEG, 2.4, p.la - 2.4, p.ha - 12, p.ha - 1, 0.6, 1.2);    // modesty panels
       B(g, LEG, 0.6, 1.2, p.hb - 12, p.hb - 1, 2.4, p.lb - 2.4);
-    }, { la: 48, da: 30, ha: 30, lb: 48, db: 18, hb: 30 });
+    }, { la: 48, da: 30, ha: 30, lb: 41, db: 18, hb: 30 });
+  list[list.length - 1].userData.pspec = [['la', 'A length', 24, 144], ['da', 'A depth', 12, 48], ['ha', 'A height', 20, 48], ['lb', 'B length', 24, 144], ['db', 'B depth', 12, 48], ['hb', 'B height', 20, 48]];
+  list[list.length - 1].userData.p0 = { la: 48, da: 30, ha: 30, lb: 41, db: 18, hb: 30 };
+
+  /* ===== New pieces from the wall drawings. Generic shapes with editable sizes (w, d, h in inches). =====
+     Floor pieces: origin at footprint center, +z = front. Wall pieces: back face on local z = 0 (the stud face),
+     width centered on x, bottom at y = 0, depth toward +z (into the room). */
+  var SIZE = [['w', 'Width', 6, 144], ['d', 'Depth', 1, 48], ['h', 'Height', 1, 96]];
+  function generic(id, label, model, note, mount, params, build) {
+    machine(id, label, model, function (p) {
+      return [['Width', p.w + '″'], ['Depth', p.d + '″'], ['Height', p.h + '″']];
+    }, note, build, params);
+    var g = list[list.length - 1];
+    g.userData.mount = mount;
+    g.userData.pspec = SIZE;
+    g.userData.p0 = JSON.parse(JSON.stringify(params));
+  }
+
+  // 7' workbench against the back wall, 38" high
+  generic('bench7', '7′ workbench', 'Built workbench', 'From your back-wall drawing: 7′ long, 38″ high. Depth is a guess.', 'floor',
+    { w: 84, d: 24, h: 38 }, function (g, p) {
+      var W = p.w / 2, D = p.d / 2, H = p.h;
+      B(g, PINE, -W, W, H - 1.5, H, -D, D);
+      B(g, PINE, -W + 1, W - 1, H - 5, H - 1.5, -D + 1, -D + 2.5);
+      B(g, PINE, -W + 1, W - 1, H - 5, H - 1.5, D - 2.5, D - 1);
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (s) {
+        B(g, PINE, s[0] * W - (s[0] > 0 ? 3.5 : 0), s[0] * W + (s[0] < 0 ? 3.5 : 0), 0, H - 1.5,
+          s[1] * D - (s[1] > 0 ? 3.5 : 0), s[1] * D + (s[1] < 0 ? 3.5 : 0));
+      });
+      B(g, PLY, -W + 3.5, W - 3.5, 6, 6.75, -D + 1, D - 1);
+    });
+
+  generic('router', 'Router table', 'Router table cabinet', 'Size is a common router-table size; edit to match yours.', 'floor',
+    { w: 32, d: 24, h: 34 }, function (g, p) {
+      var W = p.w / 2, D = p.d / 2, H = p.h;
+      B(g, 0xe8e6df, -W + 1, W - 1, 4, H - 1.25, -D + 1, D - 1);           // cabinet
+      B(g, BLACK, -W + 2, W - 2, 0, 4, -D + 2, D - 2);                      // toe kick
+      B(g, 0xcfcac0, -W + 2, -0.5, 6, H - 4, D - 1, D - 0.6);               // doors
+      B(g, 0xcfcac0, 0.5, W - 2, 6, H - 4, D - 1, D - 0.6);
+      B(g, LAM, -W, W, H - 1.25, H, -D, D);                                 // phenolic top
+      B(g, RED, -4.5, 4.5, H - 0.01, H + 0.01, -1, 8);                      // router plate
+      B(g, IRON, -W + 1, W - 1, H, H + 3.5, -D + 3, -D + 5);                // fence
+    });
+
+  generic('fridge', 'Mini fridge', 'Compact refrigerator', 'Size is a typical compact fridge.', 'floor',
+    { w: 19, d: 20, h: 33 }, function (g, p) {
+      var W = p.w / 2, D = p.d / 2, H = p.h;
+      B(g, 0x2b2e31, -W, W, 0.75, H, -D, D - 0.75);
+      B(g, 0x34383b, -W + 0.2, W - 0.2, 1, H - 0.3, D - 0.75, D);           // door
+      B(g, IRON, W - 2, W - 1.2, H * 0.45, H * 0.8, D, D + 0.01);           // handle
+      B(g, BLACK, -W + 1, W - 1, 0, 0.75, -D + 1, D - 1);
+    });
+
+  generic('bandsaw', 'Band saw', 'Vintage 14″-style band saw on stand', 'Make and model unknown; size is estimated from photos. Edit to match.', 'floor',
+    { w: 24, d: 24, h: 66 }, function (g, p) {
+      var W = p.w / 2, D = p.d / 2, H = p.h, TB = H * 0.62, SB = 0x2a2c2e;
+      B(g, SB, -W * 0.7, W * 0.7, 0, TB - 9, -D * 0.7, D * 0.7);            // stand
+      B(g, SB, -W * 0.75, W * 0.75, TB - 9, TB - 7.5, -D * 0.75, D * 0.75);
+      B(g, SB, -W * 0.25, W * 0.25, TB - 7.5, TB - 1.5, -D * 0.35, D * 0.35); // lower wheel housing
+      B(g, IRON, -W * 0.6, W * 0.6, TB - 1.5, TB, -D * 0.6, D * 0.6);        // table
+      B(g, SB, -W + 0.1, -W * 0.45, TB - 7.5, H - 2, -D * 0.25, D * 0.25);   // column / spine
+      B(g, SB, -W * 0.45, W * 0.3, H - 15, H, -D * 0.22, D * 0.22);          // upper wheel housing
+      B(g, IRON, -0.15, 0.15, TB, H - 15, D * 0.05, D * 0.12);               // blade guard post
+      B(g, BLACK, W * 0.3, W, TB - 12, TB - 9, -1.5, 1.5);                   // motor / pulley to set width
+      B(g, BLACK, -1, 1, TB - 4, TB - 2, D * 0.6, D);                         // switch, sets depth
+      B(g, BLACK, -1, 1, TB - 4, TB - 2, -D, -D * 0.6);                       // tension knob, rear
+    });
+
+  // ----- wall pieces -----
+  generic('toolboard', 'Tool board', 'Pegboard tool board', '7′ long per your drawing; height is a guess.', 'wall',
+    { w: 84, d: 1.5, h: 24 }, function (g, p) {
+      var W = p.w / 2;
+      B(g, PINE, -W, -W + 1.5, 0, p.h, 0, p.d - 0.25);                     // furring strips
+      B(g, PINE, W - 1.5, W, 0, p.h, 0, p.d - 0.25);
+      B(g, PINE, -W, W, 0, 1.5, 0, p.d - 0.25);
+      B(g, PINE, -W, W, p.h - 1.5, p.h, 0, p.d - 0.25);
+      B(g, 0x8a6a48, -W, W, 0, p.h, p.d - 0.25, p.d);                       // pegboard
+    });
+
+  function tv(id, label, cls, params) {
+    generic(id, label, cls + ' TV, wall mounted', 'Size is a typical ' + cls + ' TV; edit to match yours.', 'wall', params,
+      function (g, p) {
+        var W = p.w / 2;
+        B(g, BLACK, -6, 6, p.h / 2 - 4, p.h / 2 + 4, 0, p.d - 1.5);         // wall mount
+        B(g, BLACK, -W, W, 0, p.h, p.d - 1.5, p.d);
+        B(g, 0x14191d, -W + 0.4, W - 0.4, 0.6, p.h - 0.4, p.d, p.d + 0.01);
+      });
+  }
+  tv('tvback', 'TV (back wall)', '48″ class', { w: 43, d: 3, h: 25 });
+  tv('tvleft', 'TV (door wall)', '43″ class', { w: 38, d: 3, h: 22 });
+
+  generic('minisplit', 'Mini split', 'Ductless mini-split head', '32″ × 12″ × 6″ per your drawing.', 'wall',
+    { w: 32, d: 6, h: 12 }, function (g, p) {
+      var W = p.w / 2;
+      B(g, 0xf2f2ef, -W, W, 0, p.h, 0, p.d);
+      B(g, 0x9aa1a5, -W + 1.5, W - 1.5, 1, 2.5, p.d - 0.01, p.d + 0.01);    // louver
+      B(g, 0xd9dcdc, -W + 1, W - 1, p.h - 2, p.h - 1.4, p.d - 0.01, p.d + 0.01);
+    });
+
+  generic('woodrack', 'Wood storage', 'Cantilever lumber rack', 'Length follows your drawing; arm depth and spacing are guesses.', 'wall',
+    { w: 141, d: 16, h: 16 }, function (g, p) {
+      var W = p.w / 2, n = Math.max(2, Math.round(p.w / 32) + 1), lv = 3;
+      for (var i = 0; i < n; i++) {
+        var x = -W + 1 + i * (p.w - 2) / (n - 1);
+        B(g, DARK, x - 1, x + 1, 0, p.h, 0, 1.5);                            // upright
+        for (var j = 0; j < lv; j++) {
+          var y = j * (p.h - 3) / (lv - 1);
+          B(g, DARK, x - 0.6, x + 0.6, y, y + 1.5, 1.5, p.d);                // arm
+        }
+      }
+      for (var j = 0; j < lv; j++) {                                         // a few boards resting on the arms
+        var y = j * (p.h - 3) / (lv - 1) + 1.5;
+        B(g, PINE, -W + 2, W - 2, y, y + 1.5, 3, 3 + 5.5);
+        if (j < 2) B(g, 0xb98a55, -W + 6, W - 10, y, y + 0.75, 9.5, 9.5 + 5.5);
+      }
+    });
+
+  generic('microwave', 'Microwave', 'Microwave on a wall shelf', 'Position follows your drawing; size is typical.', 'wall',
+    { w: 19, d: 14, h: 12 }, function (g, p) {
+      var W = p.w / 2;
+      B(g, PINE, -W, W, 0, 1, 0, p.d);                                       // shelf
+      B(g, DARK, -W + 0.5, -W + 1.5, -4, 0, 0, p.d - 3);                     // brackets
+      B(g, DARK, W - 1.5, W - 0.5, -4, 0, 0, p.d - 3);
+      B(g, 0x2e3134, -W + 0.3, W - 0.3, 1, p.h, 0.5, p.d);
+      B(g, 0x14191d, -W + 1, W - 5, 2, p.h - 1, p.d, p.d + 0.01);
+    });
+  list[list.length - 1].userData.below = 4;   // brackets hang 4" under the shelf
+
+  generic('panel', 'Electrical panel', 'Breaker panel', 'Size follows your drawing; a typical panel is about 14″ × 24″.', 'wall',
+    { w: 20, d: 4, h: 28 }, function (g, p) {
+      var W = p.w / 2;
+      B(g, 0x9aa0a3, -W, W, 0, p.h, 0, p.d);
+      B(g, 0x8a9093, -W + 1, W - 1, 1, p.h - 1, p.d, p.d + 0.05);
+      B(g, DARK, W - 2.5, W - 1.5, p.h / 2 - 1.5, p.h / 2 + 1.5, p.d + 0.05, p.d + 0.3);
+    });
+
+  generic('fan', 'Gable fan', 'Powered exhaust fan at the peak', 'Typical 16″ gable fan.', 'wall',
+    { w: 16, d: 6, h: 16 }, function (g, p) {
+      var W = p.w / 2;
+      B(g, 0xd5d7d6, -W, W, 0, 1.5, 0, p.d);
+      B(g, 0xd5d7d6, -W, W, p.h - 1.5, p.h, 0, p.d);
+      B(g, 0xd5d7d6, -W, -W + 1.5, 0, p.h, 0, p.d);
+      B(g, 0xd5d7d6, W - 1.5, W, 0, p.h, 0, p.d);
+      var ring = C(g, 0x6b7175, Math.min(W, p.h / 2) - 2, 'z', 0, p.h / 2, p.d / 2, p.d * 0.6);
+      C(g, DARK, 1.6, 'z', 0, p.h / 2, p.d - 0.5, 1);
+    });
+
+  // Outlet factory: boxes sit in the stud cavity, faces flush with the stud face (local z = 0).
+  list.makeOutlet = function (kind, id) {
+    var g = new THREE.Group(), is220 = kind === '220';
+    var bw = is220 ? 4 : 2.25, bh = 4;
+    B(g, 0x7d8387, -bw / 2, bw / 2, 0, bh, -2.5, -0.15);                     // steel box
+    B(g, is220 ? 0xd27a3a : WHITE, -bw / 2 - 0.25, bw / 2 + 0.25, -0.25, bh + 0.25, -0.15, 0);   // cover
+    if (is220) C(g, BLACK, 1.1, 'z', 0, bh / 2, 0.02, 0.05);
+    else [bh * 0.3, bh * 0.7].forEach(function (y) { B(g, 0xe6e3da, -0.6, 0.6, y - 0.55, y + 0.55, 0, 0.02); });
+    g.userData.machine = { id: id, label: kind + 'V outlet', model: is220 ? '240V receptacle in a 4″ box' : '120V duplex receptacle',
+      dims: [['Box', bw + '″ × 4″']], note: 'Slides beside a stud and up and down. Boxes sit in the stud cavity, so a TV or board can cover them.' };
+    g.userData.mount = 'wall';
+    g.userData.outlet = kind;
+    g.userData.bw = bw;
+    g.userData.params = null;
+    g.userData.rebuild = function () {};
+    return g;
+  };
 
   return list;
 }
@@ -1094,11 +1261,12 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   window.addEventListener('resize', resize);
   resize();
 
-  /* ---------- machine layout: select, drag on the floor, rotate, clearances ---------- */
-  var HW = shed.size.W / 2, HL = shed.size.L / 2;
-  // Starting layout. r = quarter turns. Local +z (front) faces the room.
-  // Default layout: the hand-drawn "Whitcomb workshop, Nov 2026" plan, scaled to the measured interior.
-  // Double doors at -z, entry-door wall at -x, two-window wall at +x. r = quarter turns.
+  /* ---------- layout: floor pieces, wall pieces, outlets ---------- */
+  var HW = shed.size.W / 2, HL = shed.size.L / 2, WALL_TOP = shed.size.WALL_H;
+  var PITCH = (shed.size.RIDGE - shed.size.WALL_H) / shed.size.HALF;
+  // Default layout: the Nov 2026 floor plan for the original machines, the wall drawings for the rest.
+  // Double doors at -z (front), entry-door wall at -x (left), two-window wall at +x (right), back wall at +z.
+  // Floor pieces: x, z, r (quarter turns). Wall pieces: w (wall), a (center along the wall), y (bottom).
   var DEFAULTS = {
     drill:   { x: -79,   z: -146.5, r: 1 },
     dust:    { x: 81.75, z: -147,   r: 1 },
@@ -1110,146 +1278,323 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     shaper:  { x: 77.25, z: 31,     r: 3 },
     sander:  { x: -80.5, z: 38,     r: 1 },
     jointer: { x: -1,    z: 94,     r: 0 },
-    desk:    { x: 92.5,  z: 164,    r: 2 }
+    desk:    { x: 92.5,  z: 164,    r: 2 },
+    bench7:  { x: -21,   z: 152,    r: 2 },
+    router:  { x: 80.5,  z: -96,    r: 3 },
+    fridge:  { x: 82.5,  z: 113.5,  r: 3 },
+    bandsaw: { x: -80.5, z: 71,     r: 1 },
+    toolboard: { w: 'back',  a: -22,  y: 40 },
+    tvback:    { w: 'back',  a: -10,  y: 66 },
+    panel:     { w: 'back',  a: -80,  y: 54 },
+    fan:       { w: 'back',  a: 0,    y: 128 },
+    woodrack:  { w: 'right', a: 5.5,  y: 50 },
+    minisplit: { w: 'right', a: 4.5,  y: 67 },
+    microwave: { w: 'right', a: 89.5, y: 21 },
+    tvleft:    { w: 'left',  a: 3.5,  y: 54 }
   };
-  var DESK0 = { la: 48, da: 30, ha: 30, lb: 48, db: 18, hb: 30 };
-  var KEY = 'shed-layout-v4';
-  var byId = {};
-  machines.forEach(function (g) { byId[g.userData.machine.id] = g; });
+  var DEF_OUTLETS = [
+    ['110', 'back', 83, 24], ['110', 'back', 83, 42], ['110', 'back', 4, 39], ['110', 'back', -40, 39],
+    ['110', 'back', -10, 80], ['110', 'back', -14, 120],
+    ['220', 'right', -55, 13], ['220', 'right', 61, 13], ['110', 'right', 148, 15], ['110', 'right', 24, 74],
+    ['220', 'left', 4, 13], ['110', 'left', -86, 41], ['220', 'left', -114, 22]
+  ];
+  var KEY = 'shed-layout-v5';
+  var EPS = 0.001, BIG = 1e6;
+  var PAIRS = { 'saw|outfeed': 1, 'outfeed|saw': 1 };   // the outfeed table bolts under the saw's fence
+  var WALLS = {
+    left:  { r: 1, ax: 'z', lo: -HL, hi: HL, name: 'Entry-door wall' },
+    right: { r: 3, ax: 'z', lo: -HL, hi: HL, name: 'Two-window wall' },
+    back:  { r: 2, ax: 'x', lo: -HW, hi: HW, name: 'Back wall' },
+    front: { r: 0, ax: 'x', lo: -HW, hi: HW, name: 'Double-door wall' }
+  };
+  function wallPos(w, a, y) {
+    if (w === 'left') return [-HW, y, a];
+    if (w === 'right') return [HW, y, a];
+    if (w === 'back') return [a, y, HL];
+    return [a, y, -HL];
+  }
+  function roofAt(x) { return WALL_TOP + (shed.size.HALF - Math.abs(x)) * PITCH; }
+  function topLimit(w, a0, a1) {
+    if (w === 'left' || w === 'right') return WALL_TOP;
+    return Math.min(roofAt(a0), roofAt(a1)) - 0.5;
+  }
 
-  /* ---- footprints: cached local rectangle, rotated analytically ---- */
-  var EPS = 0.001;
-  // pieces that are meant to touch/overlap (the outfeed bolts under the saw's fence)
-  var PAIRS = { 'saw|outfeed': 1, 'outfeed|saw': 1 };
-  function localRect(g) {
-    g.updateMatrixWorld(true);
-    var b = new THREE.Box3();
-    g.children.forEach(function (o) {
-      if (o.isMesh) { o.geometry.computeBoundingBox(); b.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrix)); }
-    });
-    g.userData.lr = { x0: b.min.x, x1: b.max.x, z0: b.min.z, z1: b.max.z };
-  }
-  function rectAt(g, x, z, r) {
-    var L = g.userData.lr;
-    switch (((r % 4) + 4) % 4) {
-      case 0: return { x0: x + L.x0, x1: x + L.x1, z0: z + L.z0, z1: z + L.z1 };
-      case 1: return { x0: x + L.z0, x1: x + L.z1, z0: z - L.x1, z1: z - L.x0 };
-      case 2: return { x0: x - L.x1, x1: x - L.x0, z0: z - L.z1, z1: z - L.z0 };
-      default: return { x0: x - L.z1, x1: x - L.z0, z0: z + L.x0, z1: z + L.x1 };
+  // openings (windows and doors) as thin boxes at the wall plane; wall pieces and outlets can't enter them
+  var OPEN = [];
+  (function () {
+    function add(w, u0, u1, v0, v1) {
+      var b = { y0: v0, y1: v1 };
+      if (w === 'left')  { b.x0 = -HW - 3.5; b.x1 = -HW + 1; b.z0 = u0 - HL; b.z1 = u1 - HL; }
+      if (w === 'right') { b.x0 = HW - 1; b.x1 = HW + 3.5; b.z0 = HL - u1; b.z1 = HL - u0; }
+      if (w === 'back')  { b.z0 = HL - 1; b.z1 = HL + 3.5; b.x0 = u0 - HW; b.x1 = u1 - HW; }
+      if (w === 'front') { b.z0 = -HL - 3.5; b.z1 = -HL + 1; b.x0 = HW - u1; b.x1 = HW - u0; }
+      b.w = w; OPEN.push(b);
     }
-  }
-  function rectOf(g) { return rectAt(g, g.position.x, g.position.z, g.userData.r); }
-  function hit(a, b) { return a.x0 < b.x1 - EPS && a.x1 > b.x0 + EPS && a.z0 < b.z1 - EPS && a.z1 > b.z0 + EPS; }
-  function inWalls(a) { return a.x0 >= -HW - EPS && a.x1 <= HW + EPS && a.z0 >= -HL - EPS && a.z1 <= HL + EPS; }
-  function others(g, ignore) {
-    var id = g.userData.machine.id, out = [];
-    machines.forEach(function (o) {
-      if (o === g || PAIRS[id + '|' + o.userData.machine.id] || (ignore && ignore.indexOf(o) >= 0)) return;
-      out.push(rectOf(o));
+    [[44, 72], [120, 148], [196, 224]].forEach(function (o) { add('left', o[0], o[1], 36, 80); });
+    add('left', 272, 308, 0, 80);
+    [[44, 72], [256, 284]].forEach(function (o) { add('right', o[0], o[1], 36, 80); });
+    add('back', 113, 141, 36, 80);
+    add('front', shed.size.W / 2 - 36, shed.size.W / 2 + 36, 0, 80);
+    add('front', shed.size.W / 2 - 36, shed.size.W / 2 + 36, 98, 110);
+  })();
+  // stud centers along each wall, as world coordinates along that wall
+  var STUDS = {};
+  (function () {
+    var len = { left: shed.size.L, right: shed.size.L, back: shed.size.W, front: shed.size.W };
+    var toA = {
+      left: function (u) { return u - HL; }, right: function (u) { return HL - u; },
+      back: function (u) { return u - HW; }, front: function (u) { return HW - u; }
+    };
+    Object.keys(len).forEach(function (w) {
+      var us = [0.75];
+      for (var u = 16; u < len[w] - 1.5; u += 16) us.push(u);
+      us.push(len[w] - 0.75);
+      STUDS[w] = us.map(toA[w]);
+      OPEN.forEach(function (o) {
+        if (o.w !== w) return;
+        var lo = WALLS[w].ax === 'x' ? o.x0 : o.z0, hi = WALLS[w].ax === 'x' ? o.x1 : o.z1;
+        STUDS[w] = STUDS[w].filter(function (s) { return s < lo || s > hi; });
+        STUDS[w].push(lo - 0.75, hi + 0.75);
+      });
     });
-    return out;
+  })();
+
+  /* ---- items ---- */
+  var items = machines.slice(), byId = {}, outletSeq = 0;
+  machines.forEach(function (g) { byId[g.userData.machine.id] = g; if (!g.userData.mount) g.userData.mount = 'floor'; });
+  function isWall(g) { return g.userData.mount === 'wall'; }
+  function measure(g) {
+    g.updateMatrixWorld(true);
+    var all = new THREE.Box3(), parts = [];
+    g.children.forEach(function (o) {
+      if (!o.isMesh) return;
+      o.geometry.computeBoundingBox();
+      var bb = o.geometry.boundingBox.clone().applyMatrix4(o.matrix);
+      all.union(bb);
+      parts.push({ x0: bb.min.x, x1: bb.max.x, y0: bb.min.y, y1: bb.max.y, z0: bb.min.z, z1: bb.max.z });
+    });
+    g.userData.lr = { x0: all.min.x, x1: all.max.x, y0: all.min.y, y1: all.max.y, z0: all.min.z, z1: all.max.z };
+    g.userData.parts = parts;
+    g.userData.top = all.max.y;
   }
-  function free(g, rect, obs) {
-    if (!inWalls(rect)) return false;
-    for (var i = 0; i < obs.length; i++) if (hit(rect, obs[i])) return false;
-    return true;
+  // rotate a local box by quarter turns r and move it to (x, y, z)
+  function rot(L, x, y, z, r) {
+    var o = { y0: y + L.y0, y1: y + L.y1 };
+    switch (((r % 4) + 4) % 4) {
+      case 0: o.x0 = x + L.x0; o.x1 = x + L.x1; o.z0 = z + L.z0; o.z1 = z + L.z1; break;
+      case 1: o.x0 = x + L.z0; o.x1 = x + L.z1; o.z0 = z - L.x1; o.z1 = z - L.x0; break;
+      case 2: o.x0 = x - L.x1; o.x1 = x - L.x0; o.z0 = z - L.z1; o.z1 = z - L.z0; break;
+      default: o.x0 = x - L.z1; o.x1 = x - L.z0; o.z0 = z + L.x0; o.z1 = z + L.x1;
+    }
+    return o;
   }
-  // grid: whole inches measured from the double-door / entry-wall corner
-  function snapAxis(lo, hi, wall) {
-    var a = Math.round(lo + wall) - (lo + wall), b = Math.round(hi + wall) - (hi + wall);
+  function boxAt(g, x, y, z, r) { return rot(g.userData.lr, x, y, z, r); }
+  function boxOf(g) { return boxAt(g, g.position.x, g.position.y, g.position.z, g.userData.r); }
+  function partsAt(g, x, y, z, r) { return g.userData.parts.map(function (P) { return rot(P, x, y, z, r); }); }
+  function ov(a, b, ax) { return a[ax + '0'] < b[ax + '1'] - EPS && a[ax + '1'] > b[ax + '0'] + EPS; }
+  function hit3(a, b) { return ov(a, b, 'x') && ov(a, b, 'y') && ov(a, b, 'z'); }
+  function flat(b) { return { x0: b.x0, x1: b.x1, z0: b.z0, z1: b.z1, y0: -BIG, y1: BIG }; }
+
+  /* ---- obstacle sets ---- */
+  function obstacles(g, ignore) {
+    var id = g.userData.machine.id, o = { flat: [], solid: [], fine: [] };
+    items.forEach(function (it) {
+      if (it === g || (ignore && ignore.indexOf(it) >= 0)) return;
+      var oid = it.userData.machine.id;
+      if (!isWall(g)) {                                     // moving a floor piece
+        if (isWall(it)) { if (!it.userData.outlet) o.solid.push(boxOf(it)); }
+        else if (!PAIRS[id + '|' + oid]) o.flat.push(flat(boxOf(it)));
+      } else if (g.userData.outlet) {                       // moving an outlet: other outlets only
+        if (it.userData.outlet) o.solid.push(boxOf(it));
+      } else {                                              // moving a wall piece
+        if (isWall(it)) { if (!it.userData.outlet) o.solid.push(boxOf(it)); }
+        else o.fine.push({ bb: boxOf(it), parts: partsAt(it, it.position.x, it.position.y, it.position.z, it.userData.r) });
+      }
+    });
+    if (isWall(g)) OPEN.forEach(function (b) { o.solid.push(b); });
+    return o;
+  }
+  // does piece g placed as `st` collide with anything?
+  function blocked(g, st, o) {
+    var B = boxAt(g, st.x, st.y, st.z, st.r), i, j;
+    if (!isWall(g)) {
+      if (B.x0 < -HW - EPS || B.x1 > HW + EPS || B.z0 < -HL - EPS || B.z1 > HL + EPS) return true;
+      for (i = 0; i < o.flat.length; i++) if (hit3(B, o.flat[i])) return true;
+      if (o.solid.length) {
+        var P = partsAt(g, st.x, st.y, st.z, st.r);
+        for (i = 0; i < o.solid.length; i++) if (hit3(B, o.solid[i]))
+          for (j = 0; j < P.length; j++) if (hit3(P[j], o.solid[i])) return true;
+      }
+      return false;
+    }
+    var W = WALLS[st.w], a0 = B[W.ax + '0'], a1 = B[W.ax + '1'];
+    if (a0 < W.lo - EPS || a1 > W.hi + EPS || B.y0 < -EPS || B.y1 > topLimit(st.w, a0, a1) + EPS) return true;
+    for (i = 0; i < o.solid.length; i++) if (hit3(B, o.solid[i])) return true;
+    for (i = 0; i < o.fine.length; i++) if (hit3(B, o.fine[i].bb))
+      for (j = 0; j < o.fine[i].parts.length; j++) if (hit3(B, o.fine[i].parts[j])) return true;
+    return false;
+  }
+  // largest move along `ax` (up to d) before a mover box touches an obstacle box
+  function limit(movers, obs, ax, d) {
+    var o1 = ax === 'x' ? ['y', 'z'] : ax === 'y' ? ['x', 'z'] : ['x', 'y'];
+    obs.forEach(function (b) {
+      movers.forEach(function (m) {
+        if (!ov(m, b, o1[0]) || !ov(m, b, o1[1])) return;
+        if (d > 0 && b[ax + '0'] >= m[ax + '1'] - EPS) d = Math.min(d, Math.max(0, b[ax + '0'] - m[ax + '1']));
+        if (d < 0 && b[ax + '1'] <= m[ax + '0'] + EPS) d = Math.max(d, Math.min(0, b[ax + '1'] - m[ax + '0']));
+      });
+    });
+    return d;
+  }
+
+  /* ---- state of a piece ---- */
+  function stateOf(g) {
+    var u = g.userData;
+    if (isWall(g)) return { w: u.wall, a: u.a, y: g.position.y, x: g.position.x, z: g.position.z, r: WALLS[u.wall].r };
+    return { x: g.position.x, y: 0, z: g.position.z, r: u.r };
+  }
+  function wallState(w, a, y) { var p = wallPos(w, a, y); return { w: w, a: a, y: y, x: p[0], z: p[2], r: WALLS[w].r }; }
+  function apply(g, st) {
+    if (isWall(g)) { g.userData.wall = st.w; g.userData.a = st.a; g.userData.r = WALLS[st.w].r; }
+    else g.userData.r = ((st.r % 4) + 4) % 4;
+    g.rotation.y = g.userData.r * Math.PI / 2;
+    g.position.set(st.x, st.y || 0, st.z);
+  }
+  // grid: whole inches from the double-door / entry-wall corner
+  function snapAxis(lo, hi, origin) {
+    var a = Math.round(lo - origin) - (lo - origin), b = Math.round(hi - origin) - (hi - origin);
     return Math.abs(a) <= Math.abs(b) ? a : b;
   }
-  function snapPos(g, x, z, r) {
-    var R = rectAt(g, x, z, r);
-    return { x: x + snapAxis(R.x0, R.x1, HW), z: z + snapAxis(R.z0, R.z1, HL) };
+  function snapFloor(g, x, z, r) {
+    var B = boxAt(g, x, 0, z, r);
+    return { x: x + snapAxis(B.x0, B.x1, -HW), y: 0, z: z + snapAxis(B.z0, B.z1, -HL), r: r };
   }
-  // Slide from the current spot toward (tx, tz) along x then z, stopping flush at walls and machines.
-  function slide(g, tx, tz, obs) {
-    var x = g.position.x, z = g.position.z, r = g.userData.r;
-    function sweep(axis, d) {
-      var R = rectAt(g, x, z, r), lim;
-      if (axis === 'x') {
-        lim = d > 0 ? HW - R.x1 : -HW - R.x0;
-        obs.forEach(function (o) {
-          if (!(R.z0 < o.z1 - EPS && R.z1 > o.z0 + EPS)) return;
-          if (d > 0 && o.x0 >= R.x1 - EPS) lim = Math.min(lim, o.x0 - R.x1);
-          if (d < 0 && o.x1 <= R.x0 + EPS) lim = Math.max(lim, o.x1 - R.x0);
-        });
-        return d > 0 ? Math.max(0, Math.min(d, lim)) : Math.min(0, Math.max(d, lim));
-      }
-      lim = d > 0 ? HL - R.z1 : -HL - R.z0;
-      obs.forEach(function (o) {
-        if (!(R.x0 < o.x1 - EPS && R.x1 > o.x0 + EPS)) return;
-        if (d > 0 && o.z0 >= R.z1 - EPS) lim = Math.min(lim, o.z0 - R.z1);
-        if (d < 0 && o.z1 <= R.z0 + EPS) lim = Math.max(lim, o.z1 - R.z0);
+  function snapWall(g, w, a, y) {
+    if (g.userData.outlet) {
+      var bw = g.userData.bw, best = null;
+      STUDS[w].forEach(function (s) {
+        [s - 0.75 - bw / 2, s + 0.75 + bw / 2].forEach(function (c) { if (best === null || Math.abs(c - a) < Math.abs(best - a)) best = c; });
       });
-      return d > 0 ? Math.max(0, Math.min(d, lim)) : Math.min(0, Math.max(d, lim));
+      return wallState(w, best, Math.max(0, Math.round(y)));
     }
-    for (var k = 0; k < 2; k++) {
-      x += sweep('x', tx - x);
-      z += sweep('z', tz - z);
-    }
-    return { x: x, z: z };
+    var st = wallState(w, a, Math.round(y + g.userData.lr.y0) - g.userData.lr.y0);
+    var B = boxAt(g, st.x, st.y, st.z, st.r), ax = WALLS[w].ax;
+    return wallState(w, a + snapAxis(B[ax + '0'], B[ax + '1'], WALLS[w].lo), st.y);
   }
-  // nearest free, grid-snapped spot within `reach` inches of (x, z)
-  function findFree(g, x, z, r, obs, reach) {
-    var s0 = snapPos(g, x, z, r);
-    if (free(g, rectAt(g, s0.x, s0.z, r), obs)) return s0;
+  // nearest free, grid-snapped spot within `reach` inches
+  function findFree(g, st, o, reach) {
+    var wall = isWall(g), base = wall ? snapWall(g, st.w, st.a, st.y) : snapFloor(g, st.x, st.z, st.r);
+    if (!blocked(g, base, o)) return base;
+    var step = g.userData.outlet ? 16 : 1;
     for (var d = 1; d <= reach; d++) {
       var best = null, bd = 1e9;
       for (var i = -d; i <= d; i++) for (var j = -d; j <= d; j++) {
         if (Math.max(Math.abs(i), Math.abs(j)) !== d) continue;
-        var cx = s0.x + i, cz = s0.z + j, dist = i * i + j * j;
-        if (dist < bd && free(g, rectAt(g, cx, cz, r), obs)) { best = { x: cx, z: cz }; bd = dist; }
+        var c = wall ? (g.userData.outlet ? snapWall(g, base.w, base.a + i * step, base.y + j) : wallState(base.w, base.a + i, base.y + j))
+                     : { x: base.x + i, y: 0, z: base.z + j, r: base.r };
+        var dist = i * i * step * step + j * j;
+        if (dist < bd && !blocked(g, c, o)) { best = c; bd = dist; }
       }
       if (best) return best;
     }
     return null;
   }
+  // slide toward a target, stopping flush against walls and other pieces
+  function slideFloor(g, tx, tz, o) {
+    var st = stateOf(g);
+    function step(ax, d) {
+      var B = boxAt(g, st.x, 0, st.z, st.r);
+      var wl = ax === 'x' ? (d > 0 ? HW - B.x1 : -HW - B.x0) : (d > 0 ? HL - B.z1 : -HL - B.z0);
+      d = d > 0 ? Math.max(0, Math.min(d, wl)) : Math.min(0, Math.max(d, wl));
+      d = limit([B], o.flat, ax, d);
+      if (o.solid.length && d) d = limit(partsAt(g, st.x, 0, st.z, st.r), o.solid, ax, d);
+      return d;
+    }
+    for (var k = 0; k < 2; k++) { st.x += step('x', tx - st.x); st.z += step('z', tz - st.z); }
+    return st;
+  }
+  function slideWall(g, ta, ty, o) {
+    var st = stateOf(g), W = WALLS[st.w];
+    function fine() {
+      var out = o.solid.slice();
+      o.fine.forEach(function (f) { out.push.apply(out, f.parts); });
+      return out;
+    }
+    var all = fine();
+    for (var k = 0; k < 2; k++) {
+      var B = boxAt(g, st.x, st.y, st.z, st.r), d = ta - st.a;
+      var wl = d > 0 ? W.hi - B[W.ax + '1'] : W.lo - B[W.ax + '0'];
+      d = d > 0 ? Math.max(0, Math.min(d, wl)) : Math.min(0, Math.max(d, wl));
+      d = limit([B], all, W.ax, d);
+      var nxt = wallState(st.w, st.a + d, st.y), NB = boxAt(g, nxt.x, nxt.y, nxt.z, nxt.r);
+      if (NB.y1 <= topLimit(st.w, NB[W.ax + '0'], NB[W.ax + '1']) + EPS) st = nxt;
+      B = boxAt(g, st.x, st.y, st.z, st.r);
+      var dy = ty - st.y, top = topLimit(st.w, B[W.ax + '0'], B[W.ax + '1']);
+      dy = dy > 0 ? Math.max(0, Math.min(dy, top - B.y1)) : Math.min(0, Math.max(dy, -B.y0));
+      dy = limit([B], all, 'y', dy);
+      st = wallState(st.w, st.a, st.y + dy);
+    }
+    return st;
+  }
 
-  function place(g, p) {
-    g.userData.r = ((p.r % 4) + 4) % 4;
-    g.rotation.y = g.userData.r * Math.PI / 2;
-    g.position.set(p.x, 0, p.z);
-    clampInside(g);
+  function placeDefault(g) {
+    var id = g.userData.machine.id, d = DEFAULTS[id];
+    if (isWall(g)) apply(g, wallState(d.w, d.a, d.y)); else apply(g, { x: d.x, y: 0, z: d.z, r: d.r });
   }
-  function footprint(g) {
-    var R = rectOf(g);
-    return new THREE.Box3(new THREE.Vector3(R.x0, 0, R.z0), new THREE.Vector3(R.x1, g.userData.top || 1, R.z1));
+
+  /* ---- outlets ---- */
+  function addOutlet(kind, w, a, y, id) {
+    var g = machines.makeOutlet(kind, id || ('outlet-' + (++outletSeq)));
+    var n = +String(g.userData.machine.id).replace(/\D/g, '');
+    if (n > outletSeq) outletSeq = n;
+    measure(g);
+    var lab = label(g.userData.machine.label);
+    if (lab) { lab.scale.set(30, 7.5, 1); lab.position.set(0, 10, 4); g.add(lab); g.userData.sprite = lab; lab.visible = false; }
+    items.push(g); byId[g.userData.machine.id] = g; mGroup.add(g);
+    apply(g, snapWall(g, w, a, y));
+    return g;
   }
-  function clampInside(g) {
-    var R = rectOf(g), dx = 0, dz = 0;
-    if (R.x0 < -HW) dx = -HW - R.x0; else if (R.x1 > HW) dx = HW - R.x1;
-    if (R.z0 < -HL) dz = -HL - R.z0; else if (R.z1 > HL) dz = HL - R.z1;
-    g.position.x += dx; g.position.z += dz;
+  function removeOutlet(g) {
+    mGroup.remove(g); items.splice(items.indexOf(g), 1); delete byId[g.userData.machine.id];
   }
+  function clearOutlets() { items.filter(function (g) { return g.userData.outlet; }).forEach(removeOutlet); }
+
+  /* ---- save / load / undo ---- */
   function collect() {
     var out = {};
-    machines.forEach(function (g) {
-      var id = g.userData.machine.id;
-      out[id] = { x: +g.position.x.toFixed(3), z: +g.position.z.toFixed(3), r: g.userData.r };
-      if (g.userData.params) out[id].p = JSON.parse(JSON.stringify(g.userData.params));
+    items.forEach(function (g) {
+      var id = g.userData.machine.id, s = stateOf(g), e;
+      if (isWall(g)) e = { w: s.w, a: +s.a.toFixed(3), y: +s.y.toFixed(3) };
+      else e = { x: +s.x.toFixed(3), z: +s.z.toFixed(3), r: s.r };
+      if (g.userData.outlet) e.k = g.userData.outlet;
+      if (g.userData.params) e.p = JSON.parse(JSON.stringify(g.userData.params));
+      out[id] = e;
     });
     return out;
   }
-  function save() {
-    try { localStorage.setItem(KEY, JSON.stringify(collect())); } catch (e) {}
-  }
-  // Set every piece from a layout object; pieces missing from it go to the default spot.
+  function save() { try { localStorage.setItem(KEY, JSON.stringify(collect())); } catch (e) {} }
+  // Set every piece from a layout; anything the layout doesn't mention goes to its default.
   function applyLayout(saved) {
     machines.forEach(function (g) {
       var id = g.userData.machine.id, sv = saved && saved[id];
       if (g.userData.params) {
-        g.userData.params = JSON.parse(JSON.stringify(sv && sv.p ? sv.p : DESK0));
+        g.userData.params = JSON.parse(JSON.stringify(sv && sv.p ? sv.p : g.userData.p0 || DEFAULTS[id].p));
         rebuildMachine(g);
       }
-      place(g, sv && isFinite(sv.x) && isFinite(sv.z) ? { x: +sv.x, z: +sv.z, r: +sv.r || 0 } : DEFAULTS[id]);
+      if (sv && isWall(g) && WALLS[sv.w] && isFinite(sv.a) && isFinite(sv.y)) apply(g, wallState(sv.w, +sv.a, +sv.y));
+      else if (sv && !isWall(g) && isFinite(sv.x) && isFinite(sv.z)) apply(g, { x: +sv.x, y: 0, z: +sv.z, r: +sv.r || 0 });
+      else placeDefault(g);
     });
+    clearOutlets(); outletSeq = 0;
+    var keys = saved ? Object.keys(saved).filter(function (k) { return saved[k] && saved[k].k; }) : [];
+    if (keys.length) keys.forEach(function (k) {
+      var e = saved[k];
+      if (WALLS[e.w] && (e.k === '110' || e.k === '220')) addOutlet(e.k, e.w, +e.a, +e.y, k);
+    });
+    else DEF_OUTLETS.forEach(function (o) { addOutlet(o[0], o[1], o[2], o[3]); });
     save();
-    if (selected) select(selected);
+    select(selected && items.indexOf(selected) >= 0 ? selected : null);
   }
-
-  /* ---- undo / redo: whole-layout snapshots ---- */
   var undoStack = [], redoStack = [];
   function snap() { return JSON.stringify(collect()); }
   function commit(before) {
@@ -1258,14 +1603,13 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     redoStack.length = 0;
     save(); syncHistory();
   }
-  function restore(state) { applyLayout(JSON.parse(state)); }
   function undo() {
     if (!undoStack.length) { toast('Nothing to undo.'); return; }
-    redoStack.push(snap()); restore(undoStack.pop()); syncHistory();
+    redoStack.push(snap()); applyLayout(JSON.parse(undoStack.pop())); syncHistory();
   }
   function redo() {
     if (!redoStack.length) { toast('Nothing to redo.'); return; }
-    undoStack.push(snap()); restore(redoStack.pop()); syncHistory();
+    undoStack.push(snap()); applyLayout(JSON.parse(redoStack.pop())); syncHistory();
   }
   function syncHistory() {
     document.getElementById('undo').disabled = !undoStack.length;
@@ -1274,23 +1618,13 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   document.getElementById('undo').addEventListener('click', undo);
   document.getElementById('redo').addEventListener('click', redo);
 
-  function load() {
-    var saved = null;
-    try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
-    machines.forEach(function (g) {
-      var id = g.userData.machine.id, sv = saved && saved[id];
-      if (g.userData.params && sv && sv.p) { g.userData.params = sv.p; rebuildMachine(g); }
-      place(g, sv || DEFAULTS[id]);
-    });
-  }
-  // ----- messages and layout files -----
   function toast(msg, bad) {
     var el = document.getElementById('toast');
     el.textContent = msg; el.classList.toggle('bad', !!bad); el.hidden = false;
     clearTimeout(toast.t); toast.t = setTimeout(function () { el.hidden = true; }, 3500);
   }
   async function saveFile() {
-    var data = JSON.stringify({ app: 'crack-shack-layout', version: 1, savedAt: new Date().toISOString(), machines: collect() }, null, 2);
+    var data = JSON.stringify({ app: 'crack-shack-layout', version: 2, savedAt: new Date().toISOString(), machines: collect() }, null, 2);
     var name = 'shop-layout-' + new Date().toISOString().slice(0, 10) + '.json';
     try {
       if (window.showSaveFilePicker) {
@@ -1330,14 +1664,12 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     rd.readAsText(file);
   }
   function rebuildMachine(g) {
-    g.userData.rebuild();
-    localRect(g);
-    g.userData.top = topOf(g);
+    g.userData.rebuild(g, g.userData.params);
+    measure(g);
     if (g.userData.sprite) g.userData.sprite.position.y = g.userData.top + 10;
   }
-  machines.forEach(function (g) { localRect(g); g.userData.top = topOf(g); });
-  load();
 
+  /* ---- selection panel ---- */
   function ftin(v) {
     v = Math.max(0, Math.round(v * 2) / 2);
     var ft = Math.floor(v / 12), inch = v - ft * 12, whole = Math.floor(inch), half = inch !== whole;
@@ -1345,28 +1677,32 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     return (ft ? ft + '′ ' : '') + ins + '″';
   }
   function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-
   var selBox = new THREE.Box3Helper(new THREE.Box3(), 0x1c6b57);
   selBox.material.depthTest = false; selBox.renderOrder = 4; selBox.visible = false;
   scene.add(selBox);
   var selected = null;
   var panel = document.getElementById('sel');
   function updateLabels() {
-    machines.forEach(function (g) { if (g.userData.sprite) g.userData.sprite.visible = showLabels || g === selected; });
+    items.forEach(function (g) { if (g.userData.sprite) g.userData.sprite.visible = (showLabels && !g.userData.outlet) || g === selected; });
   }
-
   function updatePanel() {
     if (!selected) return;
-    var b = footprint(selected);
-    selBox.box.copy(b);
-    var rows = [
-      ['Entry-door wall', b.min.x + HW],
-      ['Two-window wall', HW - b.max.x],
-      ['Double-door end', b.min.z + HL],
-      ['Back wall', HL - b.max.z]
-    ];
+    var b = boxOf(selected);
+    selBox.box.min.set(b.x0, b.y0, b.z0); selBox.box.max.set(b.x1, b.y1, b.z1);
+    var rows;
+    if (isWall(selected)) {
+      var w = selected.userData.wall, W = WALLS[w], ax = W.ax;
+      var ends = w === 'left' ? ['Double-door end', 'Back end'] : w === 'right' ? ['Double-door end', 'Back end']
+               : w === 'back' ? ['Entry-door wall', 'Two-window wall'] : ['Entry-door wall', 'Two-window wall'];
+      rows = [['On', W.name, true], ['Bottom edge', b.y0], ['Top edge', b.y1], [ends[0], b[ax + '0'] - W.lo], [ends[1], W.hi - b[ax + '1']]];
+    } else {
+      rows = [['Entry-door wall', b.x0 + HW], ['Two-window wall', HW - b.x1], ['Double-door end', b.z0 + HL], ['Back wall', HL - b.z1]];
+    }
+    document.getElementById('sel-clear-h').textContent = isWall(selected) ? 'Position' : 'Clearance to walls';
     document.getElementById('sel-clear').innerHTML = rows.map(function (r) {
-      return '<dt>' + r[0] + '</dt><dd' + (r[1] < 0.25 ? ' class="tight"' : '') + '>' + (r[1] < 0.25 ? 'Against wall' : ftin(r[1])) + '</dd>';
+      if (r[2]) return '<dt>' + r[0] + '</dt><dd>' + esc(r[1]) + '</dd>';
+      var tight = r[1] < 0.25 && !/edge/.test(r[0]);
+      return '<dt>' + r[0] + '</dt><dd' + (tight ? ' class="tight"' : '') + '>' + (tight ? 'Against it' : ftin(r[1])) + '</dd>';
     }).join('');
   }
   function select(g) {
@@ -1382,69 +1718,86 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     document.getElementById('sel-dims').hidden = !!g.userData.params;
     document.getElementById('sel-dims').innerHTML = dims.map(function (d) { return '<dt>' + esc(d[0]) + '</dt><dd>' + esc(d[1]) + '</dd>'; }).join('');
     document.getElementById('sel-note').textContent = m.note;
+    document.getElementById('sel-rot').hidden = isWall(g);
+    document.getElementById('sel-del').hidden = !g.userData.outlet;
     renderParams(g);
     updatePanel();
   }
-  var PLAB = { la: 'A length', da: 'A depth', ha: 'A height', lb: 'B length', db: 'B depth', hb: 'B height' };
-  var PLIM = { la: [24, 144], lb: [24, 144], da: [12, 48], db: [12, 48], ha: [20, 48], hb: [20, 48] };
   function renderParams(g) {
-    var box = document.getElementById('sel-params');
-    var p = g.userData.params;
+    var box = document.getElementById('sel-params'), p = g.userData.params, spec = g.userData.pspec;
     box.hidden = !p;
     if (!p) { box.innerHTML = ''; return; }
-    box.innerHTML = Object.keys(PLAB).map(function (k) {
-      return '<label for="p-' + k + '">' + PLAB[k] + '</label><input id="p-' + k + '" type="number" inputmode="decimal" step="1" min="' +
-        PLIM[k][0] + '" max="' + PLIM[k][1] + '" value="' + p[k] + '"><span>in</span>';
+    box.innerHTML = spec.map(function (s) {
+      return '<label for="p-' + s[0] + '">' + s[1] + '</label><input id="p-' + s[0] + '" type="number" inputmode="decimal" step="0.5" min="' +
+        s[2] + '" max="' + s[3] + '" value="' + p[s[0]] + '"><span>in</span>';
     }).join('') + '<button type="button" id="p-reset">Default sizes</button>';
-    Object.keys(PLAB).forEach(function (k) {
+    spec.forEach(function (s) {
+      var k = s[0];
       document.getElementById('p-' + k).addEventListener('change', function (e) {
         var v = parseFloat(e.target.value);
         if (!isFinite(v)) { e.target.value = p[k]; return; }
-        v = Math.min(PLIM[k][1], Math.max(PLIM[k][0], Math.round(v)));
+        v = Math.min(s[3], Math.max(s[2], Math.round(v * 2) / 2));
         e.target.value = v;
         var before = snap();
         p[k] = v;
-        if (p.lb < p.da + 6) { p.lb = p.da + 6; }
-        if (p.la < p.db + 6) { p.la = p.db + 6; }
+        if (p.lb !== undefined) { if (p.lb < p.da + 6) p.lb = p.da + 6; if (p.la < p.db + 6) p.la = p.db + 6; }
         applyParams(g, before);
       });
     });
     document.getElementById('p-reset').addEventListener('click', function () {
       var before = snap();
-      g.userData.params = JSON.parse(JSON.stringify(DESK0));
-      applyParams(g, before); renderParams(g);
+      g.userData.params = JSON.parse(JSON.stringify(g.userData.p0));
+      applyParams(g, before);
     });
   }
   function applyParams(g, before) {
     var old = JSON.parse(before)[g.userData.machine.id];
+    var st = stateOf(g);
     rebuildMachine(g);
-    var spot = findFree(g, g.position.x, g.position.z, g.userData.r, others(g), 48);
+    var spot = findFree(g, st, obstacles(g), 48);
     if (!spot) {
-      g.userData.params = old.p; rebuildMachine(g); renderParams(g);
-      toast('No room for that size here. Move the desk or nearby machines first.', true);
+      g.userData.params = old.p; rebuildMachine(g);
+      toast('No room for that size here. Move it or nearby pieces first.', true);
     } else {
-      var moved = Math.abs(spot.x - g.position.x) > 0.5 || Math.abs(spot.z - g.position.z) > 0.5;
-      g.position.x = spot.x; g.position.z = spot.z;
-      commit(before);
-      if (moved) toast('Moved the desk to the nearest spot where that size fits. Ctrl+Z to undo.');
+      var moved = Math.abs((spot.x - st.x)) + Math.abs(spot.z - st.z) + Math.abs((spot.y || 0) - (st.y || 0)) > 0.75;
+      apply(g, spot); commit(before);
+      if (moved) toast('Moved it to the nearest spot where that size fits. Ctrl+Z to undo.');
     }
-    var m = g.userData.machine;
-    document.getElementById('sel-dims').innerHTML = m.dims(g.userData.params).map(function (d) { return '<dt>' + esc(d[0]) + '</dt><dd>' + esc(d[1]) + '</dd>'; }).join('');
+    renderParams(g);
     updatePanel();
   }
-  // Rotate about the footprint center; if the new footprint doesn't fit, take the nearest free spot.
+  // floor pieces turn about their footprint center and take the nearest free spot
   function rotateSel() {
     var g = selected;
-    if (!g) return;
-    var before = snap(), R = rectOf(g), cx = (R.x0 + R.x1) / 2, cz = (R.z0 + R.z1) / 2;
-    var nr = (g.userData.r + 1) % 4;
-    var N = rectAt(g, 0, 0, nr);
-    var spot = findFree(g, cx - (N.x0 + N.x1) / 2, cz - (N.z0 + N.z1) / 2, nr, others(g), 60);
+    if (!g || isWall(g)) return;
+    var before = snap(), B = boxOf(g), cx = (B.x0 + B.x1) / 2, cz = (B.z0 + B.z1) / 2;
+    var nr = (g.userData.r + 1) % 4, N = boxAt(g, 0, 0, 0, nr);
+    var spot = findFree(g, { x: cx - (N.x0 + N.x1) / 2, y: 0, z: cz - (N.z0 + N.z1) / 2, r: nr }, obstacles(g), 60);
     if (!spot) { toast('Not enough room to rotate it here. Move it somewhere more open first.', true); return; }
-    g.userData.r = nr; g.rotation.y = nr * Math.PI / 2;
-    g.position.x = spot.x; g.position.z = spot.z;
-    updatePanel(); commit(before);
+    apply(g, spot); updatePanel(); commit(before);
   }
+  function addNew(kind) {
+    var before = snap();
+    // start on the wall the camera is looking at, at outlet height, nearest free stud bay
+    var dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+    var w = Math.abs(dir.x) > Math.abs(dir.z) ? (dir.x > 0 ? 'right' : 'left') : (dir.z > 0 ? 'back' : 'front');
+    var g = addOutlet(kind, w, 0, 18), spot = findFree(g, stateOf(g), obstacles(g), 40);
+    if (!spot) { removeOutlet(g); toast('No free spot for an outlet on that wall.', true); return; }
+    apply(g, spot); select(g); commit(before);
+    document.getElementById('more').open = false;
+    toast('Added a ' + kind + 'V outlet on the ' + WALLS[w].name.toLowerCase() + '.');
+  }
+  function deleteSel() {
+    if (!selected || !selected.userData.outlet) return;
+    var before = snap(); removeOutlet(selected); select(null); commit(before);
+  }
+
+  machines.forEach(measure);
+  (function load() {
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+    applyLayout(saved);
+  })();
 
   var picker = document.getElementById('layout-file');
   picker.addEventListener('change', function () { if (picker.files[0]) openFile(picker.files[0]); picker.value = ''; });
@@ -1453,14 +1806,17 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   document.getElementById('f-default').addEventListener('click', function () {
     var before = snap(); applyLayout(null); commit(before);
     document.getElementById('more').open = false;
-    toast('Back to the floor-plan layout. Ctrl+Z to undo.');
+    toast('Back to the default layout. Ctrl+Z to undo.');
   });
+  document.getElementById('add110').addEventListener('click', function () { addNew('110'); });
+  document.getElementById('add220').addEventListener('click', function () { addNew('220'); });
   document.addEventListener('click', function (e) {
     var more = document.getElementById('more');
     if (more.open && !more.contains(e.target)) more.open = false;
   });
   document.getElementById('sel-close').addEventListener('click', function () { select(null); });
   document.getElementById('sel-rot').addEventListener('click', rotateSel);
+  document.getElementById('sel-del').addEventListener('click', deleteSel);
   window.addEventListener('keydown', function (e) {
     if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
     var mod = e.ctrlKey || e.metaKey, k = (e.key || '').toLowerCase();
@@ -1468,9 +1824,11 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); if (!drag) redo(); return; }
     if (mod) return;
     if (k === 'r' && selected && !drag) { rotateSel(); e.preventDefault(); }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selected && selected.userData.outlet && !drag) { deleteSel(); e.preventDefault(); }
     if (e.key === 'Escape') { select(null); document.getElementById('more').open = false; }
   });
 
+  /* ---- pointer: pick, drag on the floor or along walls ---- */
   var ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
   var floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hitP = new THREE.Vector3();
   var drag = null;
@@ -1481,16 +1839,37 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }
   function pick() {
     if (!mGroup.visible) return null;
-    var hits = ray.intersectObjects(machines, true);
+    var hits = ray.intersectObjects(items, true), first = null, firstD = 0;
     for (var i = 0; i < hits.length; i++) {
       if (!hits[i].object.isMesh) continue;
       var o = hits[i].object;
       while (o && !o.userData.machine) o = o.parent;
-      if (o) return o;
+      if (!o) continue;
+      if (!first) { first = o; firstD = hits[i].distance; if (o.userData.outlet || !isWall(o)) return o; continue; }
+      // an outlet just behind a TV or board wins, so covered outlets can still be grabbed
+      if (o.userData.outlet && hits[i].distance - firstD < 8) return o;
     }
-    return null;
+    return first;
   }
-  // Capture on the container so a press on a machine never reaches the orbit controls.
+  // where the pointer meets a wall's inner face (only walls whose face looks toward the camera)
+  var WALL_PLANES = {
+    left:  { n: [1, 0, 0], d: HW }, right: { n: [-1, 0, 0], d: HW },
+    back:  { n: [0, 0, -1], d: HL }, front: { n: [0, 0, 1], d: HL }
+  };
+  function wallHit() {
+    var best = null;
+    Object.keys(WALL_PLANES).forEach(function (w) {
+      var P = WALL_PLANES[w], n = new THREE.Vector3(P.n[0], P.n[1], P.n[2]);
+      if (ray.ray.direction.dot(n) >= 0) return;
+      var pl = new THREE.Plane(n, P.d), pt = new THREE.Vector3();
+      if (!ray.ray.intersectPlane(pl, pt)) return;
+      var a = WALLS[w].ax === 'x' ? pt.x : pt.z, W = WALLS[w];
+      if (a < W.lo - 6 || a > W.hi + 6 || pt.y < -6 || pt.y > topLimit(w, a, a) + 6) return;
+      var dist = pt.distanceTo(ray.ray.origin);
+      if (!best || dist < best.dist) best = { w: w, a: a, y: pt.y, dist: dist };
+    });
+    return best;
+  }
   stage.addEventListener('pointerdown', function (e) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (drag) return;
@@ -1499,10 +1878,17 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (!g) return;
     e.stopPropagation(); e.preventDefault();
     select(g);
-    if (!ray.ray.intersectPlane(floorPlane, hitP)) return;
-    // machines already overlapping this one when the drag starts (e.g. from an old file) don't block it
-    var start = rectOf(g), ign = machines.filter(function (o) { return o !== g && hit(start, rectOf(o)); });
-    drag = { g: g, id: e.pointerId, ox: g.position.x - hitP.x, oz: g.position.z - hitP.z, before: snap(), obs: others(g, ign) };
+    var start = boxOf(g), ign = items.filter(function (o) { return o !== g && !isWall(o) === !isWall(g) && hit3(start, isWall(g) ? boxOf(o) : flat(boxOf(o))); });
+    drag = { g: g, id: e.pointerId, before: snap(), o: obstacles(g, ign), ign: ign };
+    if (isWall(g)) {
+      var h = wallHit(), st = stateOf(g);
+      drag.oa = h && h.w === st.w ? st.a - h.a : 0;
+      drag.oy = h && h.w === st.w ? st.y - h.y : -(g.userData.lr.y1 - g.userData.lr.y0) / 2;
+      if (!h && ray.ray.intersectPlane(floorPlane, hitP)) drag.oa = st.a - (WALLS[st.w].ax === 'x' ? hitP.x : hitP.z);
+    } else {
+      if (!ray.ray.intersectPlane(floorPlane, hitP)) { drag = null; return; }
+      drag.ox = g.position.x - hitP.x; drag.oz = g.position.z - hitP.z;
+    }
     controls.enabled = false;
     stage.style.cursor = 'grabbing';
   }, true);
@@ -1513,10 +1899,32 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     }
     if (e.pointerId !== drag.id) return;
     aim(e);
-    if (!ray.ray.intersectPlane(floorPlane, hitP)) return;
-    var t = snapPos(drag.g, hitP.x + drag.ox, hitP.z + drag.oz, drag.g.userData.r);   // 1" grid
-    var p = slide(drag.g, t.x, t.z, drag.obs);                                      // stops flush, never overlaps
-    drag.g.position.x = p.x; drag.g.position.z = p.z;
+    var g = drag.g;
+    if (!isWall(g)) {
+      if (!ray.ray.intersectPlane(floorPlane, hitP)) return;
+      var t = snapFloor(g, hitP.x + drag.ox, hitP.z + drag.oz, g.userData.r);   // 1" grid
+      apply(g, slideFloor(g, t.x, t.z, drag.o));                                  // flush stop, never overlaps
+    } else {
+      var st = stateOf(g), h = wallHit(), ta, ty;
+      if (h && h.w !== st.w) {                                                   // carried onto another wall
+        var c = findFree(g, wallState(h.w, h.a, h.y - (g.userData.lr.y1 - g.userData.lr.y0) / 2), drag.o, 12);
+        if (c) { apply(g, c); drag.oa = c.a - h.a; drag.oy = c.y - h.y; }
+        updatePanel(); return;
+      }
+      if (h) { ta = h.a + drag.oa; ty = h.y + drag.oy; }
+      else if (ray.ray.intersectPlane(floorPlane, hitP)) { ta = (WALLS[st.w].ax === 'x' ? hitP.x : hitP.z) + drag.oa; ty = st.y; }
+      else return;
+      if (g.userData.outlet) {
+        var c2 = snapWall(g, st.w, ta, ty);
+        [c2, snapWall(g, st.w, ta, st.y), snapWall(g, st.w, st.a, ty)].some(function (c) {
+          if (!blocked(g, c, drag.o)) { apply(g, c); return true; }
+          return false;
+        });
+      } else {
+        var sn = snapWall(g, st.w, ta, ty);
+        apply(g, slideWall(g, sn.a, sn.y, drag.o));
+      }
+    }
     updatePanel();
   });
   function endDrag(e) {
