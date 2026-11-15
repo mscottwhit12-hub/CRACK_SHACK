@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shed Interior 3D Model</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@600&display=swap" rel="stylesheet">
+<style>
+  /* Layout: full-bleed 3D viewport; spec sheet pinned top-left; view and layer controls in a strip along the bottom. */
+  :root {
+    --bg: #e6eae7;
+    --panel: #fbfcfb;
+    --ink: #1b2725;
+    --muted: #5a6865;
+    --line: #cdd5d1;
+    --accent: #1c6b57;
+    --accent-ink: #ffffff;
+    --est: #96560f;
+    --font-display: 'Barlow Condensed', 'Arial Narrow', Arial, sans-serif;
+    --font-body: 'Barlow', 'Helvetica Neue', Arial, sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151b1a;
+      --panel: #1f2726;
+      --ink: #e8eeec;
+      --muted: #9aa8a4;
+      --line: #36413f;
+      --accent: #58c2a6;
+      --accent-ink: #0d1a17;
+      --est: #e0a45a;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151b1a;
+    --panel: #1f2726;
+    --ink: #e8eeec;
+    --muted: #9aa8a4;
+    --line: #36413f;
+    --accent: #58c2a6;
+    --accent-ink: #0d1a17;
+    --est: #e0a45a;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-body);
+    font-size: 15px;
+    line-height: 1.35;
+    overflow: hidden;
+  }
+  #stage { position: absolute; inset: 0; }
+  #stage canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+
+  .spec {
+    position: absolute; top: 12px; left: 16px;
+    width: min(300px, calc(100% - 32px));
+    max-height: calc(100% - 190px);
+    overflow: auto;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+  .spec summary {
+    list-style: none; cursor: pointer;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+    padding: 10px 14px;
+  }
+  .spec summary::-webkit-details-marker { display: none; }
+  .spec h1 {
+    margin: 0; font-family: var(--font-display); font-weight: 600;
+    font-size: 22px; letter-spacing: .02em; text-transform: uppercase; text-wrap: balance;
+  }
+  .spec summary span { color: var(--muted); font-size: 13px; white-space: nowrap; }
+  .spec[open] summary span.closed, .spec:not([open]) summary span.opened { display: none; }
+  .spec .body { padding: 0 14px 12px; display: flex; flex-direction: column; gap: 10px; }
+  .spec h2 {
+    margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+  }
+  .spec h2.est { color: var(--est); }
+  .spec dl { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 4px 12px; }
+  .spec dt { color: var(--muted); }
+  .spec dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+  .spec p { margin: 0; color: var(--muted); font-size: 13px; }
+
+  .controls {
+    position: absolute; left: 16px; right: 16px; bottom: 12px;
+    display: flex; flex-direction: column; gap: 8px; align-items: flex-start;
+    pointer-events: none;
+  }
+  .row {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 8px; pointer-events: auto; max-width: 100%;
+  }
+  .row .lbl {
+    font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
+    color: var(--muted); padding: 0 4px;
+  }
+  button {
+    font: 500 14px/1 var(--font-body);
+    color: var(--ink); background: transparent;
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 8px 10px; cursor: pointer;
+  }
+  button:hover { border-color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+  .hint { color: var(--muted); font-size: 13px; padding: 0 2px; pointer-events: none; }
+  .sel {
+    position: absolute; top: 12px; right: 16px;
+    width: min(290px, calc(100% - 32px));
+    max-height: calc(100% - 230px); overflow: auto;
+    background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--accent);
+    border-radius: 8px; padding: 10px 14px 12px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .sel[hidden] { display: none; }
+  .sel .head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+  .sel h2 {
+    margin: 0; font-family: var(--font-display); font-weight: 600; font-size: 22px;
+    letter-spacing: .02em; text-transform: uppercase;
+  }
+  .sel .model { margin: 0; color: var(--muted); font-size: 13px; }
+  .sel h3 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .sel dl { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 3px 12px; }
+  .sel dt { color: var(--muted); }
+  .sel dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; text-align: right; }
+  .sel dd.tight { color: var(--est); }
+  .sel .note { margin: 0; color: var(--muted); font-size: 13px; }
+  .sel .x { padding: 4px 9px; font-size: 16px; }
+  .params { display: grid; grid-template-columns: 1fr 72px auto; gap: 6px 8px; align-items: center; }
+  .params[hidden] { display: none; }
+  .params label { color: var(--muted); font-size: 14px; }
+  .params input {
+    font: 600 14px var(--font-body); font-variant-numeric: tabular-nums; color: var(--ink);
+    background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; width: 100%;
+  }
+  .params input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .params span { color: var(--muted); font-size: 13px; }
+  .params button { grid-column: 1 / -1; justify-self: start; }
+  @media (max-width: 700px) {
+    .sel { top: 64px; max-height: calc(100% - 300px); }
+  }
+  #fail {
+    position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+    padding: 24px; text-align: center; color: var(--ink);
+  }
+  @media (max-width: 520px) {
+    .hint { display: none; }
+    button { padding: 8px 9px; }
+  }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div id="fail">This browser could not start 3D graphics. Open the page in a current version of Chrome, Safari, Edge or Firefox.</div>
+
+<details class="spec" id="spec">
+  <summary>
+    <h1>Shed interior</h1>
+    <span class="closed">Show sizes</span><span class="opened">Hide</span>
+  </summary>
+  <div class="body">
+    <h2>Measured</h2>
+    <dl>
+      <dt>Width, plate to plate</dt><dd>15′ 5″</dd>
+      <dt>Length, plate to plate</dt><dd>27′ 4″</dd>
+      <dt>Floor area</dt><dd>421 sq ft</dd>
+      <dt>Stud length</dt><dd>7′ 0″</dd>
+      <dt>Stud spacing</dt><dd>16″ o.c.</dd>
+      <dt>Double door</dt><dd>6′ centered</dd>
+    </dl>
+    <h2 class="est">Estimated from photos</h2>
+    <dl>
+      <dt>Top of wall plates</dt><dd>7′ 4½″</dd>
+      <dt>Roof pitch</dt><dd>10 / 12</dd>
+      <dt>Peak, underside</dt><dd>14′ 0″</dd>
+      <dt>Truss cross tie</dt><dd>11′ 9″</dd>
+      <dt>Dormer wall top</dt><dd>9′ 6½″</dd>
+    </dl>
+    <p>Window, single door, dormer and truss positions are approximate.</p>
+    <h2>Machines</h2>
+    <p>Overall sizes are the published figures. Mobile bases are not modeled. Machines can overlap each other; check clearances.</p>
+  </div>
+</details>
+
+<section class="sel" id="sel" hidden aria-live="polite">
+  <div class="head">
+    <h2 id="sel-name"></h2>
+    <button type="button" class="x" id="sel-close" aria-label="Deselect machine">×</button>
+  </div>
+  <p class="model" id="sel-model"></p>
+  <dl id="sel-dims"></dl>
+  <h3>Clearance to walls</h3>
+  <dl id="sel-clear"></dl>
+  <p class="note" id="sel-note"></p>
+  <div class="params" id="sel-params" hidden></div>
+  <div><button type="button" id="sel-rot">Rotate 90°</button></div>
+</section>
+
+<div class="controls">
+  <div class="hint">Drag a machine to move it; press R to rotate it. Drag empty space to orbit. Scroll or pinch to zoom.</div>
+  <div class="row" role="group" aria-label="Machines" id="mrow">
+    <span class="lbl">Machines</span>
+  </div>
+  <div class="row" role="group" aria-label="Views">
+    <span class="lbl">View</span>
+    <button type="button" id="v-over" data-view="over">Overview</button>
+    <button type="button" id="v-plan" data-view="plan">Floor plan</button>
+    <button type="button" id="v-front" data-view="front">Inside, facing double doors</button>
+    <button type="button" id="v-back" data-view="back">Inside, facing back</button>
+  </div>
+  <div class="row" role="group" aria-label="Layers">
+    <span class="lbl">Show</span>
+    <button type="button" id="l-roof" data-layer="roofSkin" aria-pressed="true">Roof</button>
+    <button type="button" id="l-rframe" data-layer="roofFrame" aria-pressed="true">Roof framing</button>
+    <button type="button" id="l-wall" data-layer="wallSkin" aria-pressed="true">Wall sheathing</button>
+    <button type="button" id="l-grid" data-layer="grid" aria-pressed="true">1 ft grid</button>
+    <button type="button" id="l-dims" data-layer="dims" aria-pressed="true">Dimensions</button>
+    <button type="button" id="l-mach" data-layer="machines" aria-pressed="true">Machines</button>
+  </div>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+
+<script id="model">
+/* Shed model. All units are inches. Origin: center of the floor, y up.
+   -z = double-door gable, +z = back gable, -x = entry wall (3 windows, door, dormer), +x = two-window wall. */
+function buildShed(THREE, hooks) {
+  hooks = hooks || {};
+  var W = 185, L = 328;                 // measured: plate face to plate face
+  var STUD = 84, PLATE = 1.5, TOP = 3;  // measured stud; double top plate assumed
+  var WALL_H = PLATE + STUD + TOP;      // 88.5
+  var D = 3.5, T = 1.5;                 // 2x4
+  var HALF = W / 2 + D;                 // 96 to outside of framing
+  var PITCH = 10 / 12;                  // estimated
+  var RIDGE = WALL_H + HALF * PITCH;    // 168.5, underside of rafters at the peak
+  var SK = 3.5 * Math.sqrt(1 + PITCH * PITCH); // vertical offset to top of rafters
+  var ZD0 = -132, ZD1 = 76;             // dormer extent along the entry wall (estimated)
+  var DORMER_TOP = WALL_H + 26;         // 114.5 (estimated)
+  var COLLAR = 141, KX = 58, CX = 26;   // truss inner profile (estimated)
+
+  var lumberCols = [0xdcb682, 0xd3aa72, 0xe2c08f];
+  var M = {
+    lumber: lumberCols.map(function (c) { return new THREE.MeshLambertMaterial({ color: c }); }),
+    osbIn: new THREE.MeshLambertMaterial({ color: hooks.osbMap ? 0xffffff : 0xb98a52, map: hooks.osbMap || null, side: THREE.BackSide }),
+    osbFront: new THREE.MeshLambertMaterial({ color: hooks.osbMap ? 0xffffff : 0xb98a52, map: hooks.osbMap || null, side: THREE.FrontSide }),
+    floor: new THREE.MeshLambertMaterial({ color: 0xa9966f }),
+    trim: new THREE.MeshLambertMaterial({ color: 0xf4f4f0 }),
+    glass: new THREE.MeshBasicMaterial({ color: 0xbfe3f2, transparent: true, opacity: 0.38, side: THREE.DoubleSide, depthWrite: false })
+  };
+  var n = 0;
+  function lum() { n++; return M.lumber[(n * 7) % 3]; }
+
+  function box(parent, mat, x0, x1, y0, y1, z0, z1) {
+    var m = new THREE.Mesh(new THREE.BoxGeometry(Math.abs(x1 - x0), Math.abs(y1 - y0), Math.abs(z1 - z0)), mat);
+    m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    parent.add(m);
+    return m;
+  }
+
+  var root = new THREE.Group();
+  var layers = {
+    wallFrame: new THREE.Group(), wallSkin: new THREE.Group(),
+    roofFrame: new THREE.Group(), roofSkin: new THREE.Group(),
+    grid: new THREE.Group(), dims: new THREE.Group(), fixtures: new THREE.Group()
+  };
+  Object.keys(layers).forEach(function (k) { root.add(layers[k]); });
+
+  /* ---------- floor ---------- */
+  box(root, M.floor, -HALF, HALF, -0.75, 0, -(L / 2 + D), L / 2 + D);
+
+  /* ---------- openings ---------- */
+  function addWindow(g, o) {
+    var f = 1.25;
+    box(g, M.trim, o.u0, o.u1, o.v0, o.v0 + f, 1.6, 3.5);
+    box(g, M.trim, o.u0, o.u1, o.v1 - f, o.v1, 1.6, 3.5);
+    box(g, M.trim, o.u0, o.u0 + f, o.v0, o.v1, 1.6, 3.5);
+    box(g, M.trim, o.u1 - f, o.u1, o.v0, o.v1, 1.6, 3.5);
+    if (o.bars) {
+      for (var i = 1; i < o.bars; i++) {
+        var u = o.u0 + (o.u1 - o.u0) * i / o.bars;
+        box(g, M.trim, u - 0.3, u + 0.3, o.v0, o.v1, 2.3, 2.9);
+      }
+    } else {
+      var mid = (o.v0 + o.v1) / 2;
+      box(g, M.trim, o.u0, o.u1, mid - 0.7, mid + 0.7, 2.1, 3.1);
+    }
+    box(g, M.glass, o.u0 + f, o.u1 - f, o.v0 + f, o.v1 - f, 2.5, 2.7);
+  }
+  function addDoor(g, o) {
+    var leaves = o.double ? 2 : 1, lw = (o.u1 - o.u0) / leaves;
+    for (var i = 0; i < leaves; i++) {
+      var a = o.u0 + i * lw + 0.25, b = o.u0 + (i + 1) * lw - 0.25, lite = o.v0 + 38;
+      box(g, M.trim, a, b, o.v0 + 0.5, lite, 1.6, 3.3);
+      box(g, M.trim, a, a + 5, lite, o.v1 - 0.5, 1.6, 3.3);
+      box(g, M.trim, b - 5, b, lite, o.v1 - 0.5, 1.6, 3.3);
+      box(g, M.trim, a + 5, b - 5, o.v1 - 6, o.v1 - 0.5, 1.6, 3.3);
+      box(g, M.glass, a + 5, b - 5, lite, o.v1 - 6, 2.3, 2.6);
+    }
+  }
+
+  /* ---------- walls (local: u along wall, v up, w outward from the room) ---------- */
+  function buildWall(cfg) {
+    var frame = new THREE.Group(), skin = new THREE.Group(), fix = new THREE.Group();
+    var len = cfg.len, ops = cfg.openings || [], e = cfg.ext || 0, extra = cfg.high || [];
+    function stud(u, v0, v1) { if (v1 - v0 > 0.5) box(frame, lum(), u - T / 2, u + T / 2, v0, v1, 0, D); }
+
+    var segs = [[-e, len + e]];
+    ops.forEach(function (o) {
+      if (!o.door) return;
+      var next = [];
+      segs.forEach(function (s) {
+        if (o.u0 > s[0] && o.u1 < s[1]) { next.push([s[0], o.u0], [o.u1, s[1]]); } else next.push(s);
+      });
+      segs = next;
+    });
+    segs.forEach(function (s) { box(frame, lum(), s[0], s[1], 0, PLATE, 0, D); });
+    box(frame, lum(), -e, len + e, PLATE + STUD, PLATE + STUD + T, 0, D);
+    box(frame, lum(), -e, len + e, PLATE + STUD + T, WALL_H, 0, D);
+
+    var centers = [T / 2];
+    for (var u = 16; u < len - T; u += 16) centers.push(u);
+    centers.push(len - T / 2);
+    centers.forEach(function (u) {
+      var o = null;
+      ops.forEach(function (p) { if (u > p.u0 - T && u < p.u1 + T) o = p; });
+      if (!o) { stud(u, PLATE, PLATE + STUD); return; }
+      if (!o.door) stud(u, PLATE, o.v0 - T);
+      stud(u, o.v1 + 5.5, PLATE + STUD);
+    });
+    ops.forEach(function (o) {
+      stud(o.u0 - T / 2, PLATE, PLATE + STUD);
+      stud(o.u1 + T / 2, PLATE, PLATE + STUD);
+      box(frame, lum(), o.u0 - T, o.u1 + T, o.v1, Math.min(o.v1 + 5.5, PLATE + STUD), 0, D);
+      if (o.door) addDoor(fix, o);
+      else { box(frame, lum(), o.u0, o.u1, o.v0 - T, o.v0, 0, D); addWindow(fix, o); }
+    });
+
+    if (cfg.gable) {
+      // studs above the plate up to the rafter line
+      for (var gu = 16; gu < len; gu += 16) {
+        var top = WALL_H + (HALF - Math.abs(gu - len / 2)) * PITCH - 0.5;
+        var h = null;
+        extra.forEach(function (p) { if (gu > p.u0 - T && gu < p.u1 + T) h = p; });
+        if (h) { stud(gu, WALL_H, h.v0 - T); stud(gu, h.v1 + T, top); }
+        else stud(gu, WALL_H, top);
+      }
+      extra.forEach(function (h) {
+        box(frame, lum(), h.u0 - T, h.u1 + T, h.v0 - T, h.v0, 0, D);
+        box(frame, lum(), h.u0 - T, h.u1 + T, h.v1, h.v1 + T, 0, D);
+        addWindow(fix, h);
+      });
+    }
+
+    var s = new THREE.Shape();
+    s.moveTo(-D, 0); s.lineTo(len + D, 0); s.lineTo(len + D, WALL_H);
+    if (cfg.gable) s.lineTo(len / 2, RIDGE + SK);
+    s.lineTo(-D, WALL_H); s.lineTo(-D, 0);
+    ops.concat(extra).forEach(function (o) {
+      var hpath = new THREE.Path();
+      hpath.moveTo(o.u0, o.v0); hpath.lineTo(o.u1, o.v0); hpath.lineTo(o.u1, o.v1); hpath.lineTo(o.u0, o.v1); hpath.lineTo(o.u0, o.v0);
+      s.holes.push(hpath);
+    });
+    var sm = new THREE.Mesh(new THREE.ShapeGeometry(s), M.osbIn);
+    sm.position.z = D;
+    skin.add(sm);
+
+    [[frame, layers.wallFrame], [skin, layers.wallSkin], [fix, layers.fixtures]].forEach(function (p) {
+      p[0].position.set(cfg.pos[0], 0, cfg.pos[1]);
+      p[0].rotation.y = cfg.rot;
+      p[1].add(p[0]);
+    });
+    return { frame: frame, skin: skin, fix: fix };
+  }
+
+  var WIN = { v0: 36, v1: 80 };
+  function win(u0, u1) { return { u0: u0, u1: u1, v0: WIN.v0, v1: WIN.v1 }; }
+
+  // Entry wall (-x). u = z + L/2, starting at the double-door end.
+  var entry = buildWall({
+    len: L, ext: D, pos: [-W / 2, -L / 2], rot: -Math.PI / 2,
+    openings: [win(44, 72), win(120, 148), win(196, 224), { u0: 272, u1: 308, v0: 0, v1: 80, door: true }]
+  });
+  // Two-window wall (+x).
+  buildWall({ len: L, ext: D, pos: [W / 2, L / 2], rot: Math.PI / 2, openings: [win(44, 72), win(256, 284)] });
+  // Double-door gable (-z). Door centered on the interior width.
+  buildWall({
+    len: W, gable: true, pos: [W / 2, -L / 2], rot: Math.PI,
+    openings: [{ u0: W / 2 - 36, u1: W / 2 + 36, v0: 0, v1: 80, door: true, double: true }],
+    high: [{ u0: W / 2 - 36, u1: W / 2 + 36, v0: 98, v1: 110, bars: 6 }]
+  });
+  // Back gable (+z). One window toward the two-window wall.
+  buildWall({ len: W, gable: true, pos: [-W / 2, L / 2], rot: 0, openings: [win(113, 141)] });
+
+  /* ---------- dormer wall, built in the entry wall's local frame ---------- */
+  (function () {
+    var u0 = ZD0 + L / 2, u1 = ZD1 + L / 2;
+    var tr = [{ u0: u0 + 8, u1: u0 + 96, v0: 97, v1: 109, bars: 6 }, { u0: u1 - 96, u1: u1 - 8, v0: 97, v1: 109, bars: 6 }];
+    var f = entry.frame;
+    box(f, lum(), u0, u1, DORMER_TOP - 3, DORMER_TOP, 0, D);
+    box(f, lum(), u0, u1, 109, DORMER_TOP - 3, 0, D);
+    box(f, lum(), u0, u1, 95.5, 97, 0, D);
+    for (var u = u0 + T / 2; u <= u1; u += 16) {
+      var inTr = false;
+      tr.forEach(function (t) { if (u > t.u0 && u < t.u1) inTr = true; });
+      box(f, lum(), u - T / 2, u + T / 2, WALL_H, inTr ? 95.5 : 109, 0, D);
+    }
+    box(f, lum(), u1 - T, u1, WALL_H, 109, 0, D);
+    tr.forEach(function (t) { addWindow(entry.fix, t); });
+    var s = new THREE.Shape();
+    s.moveTo(u0, WALL_H); s.lineTo(u1, WALL_H); s.lineTo(u1, DORMER_TOP + 4); s.lineTo(u0, DORMER_TOP + 4); s.lineTo(u0, WALL_H);
+    tr.forEach(function (o) {
+      var h = new THREE.Path();
+      h.moveTo(o.u0, o.v0); h.lineTo(o.u1, o.v0); h.lineTo(o.u1, o.v1); h.lineTo(o.u0, o.v1); h.lineTo(o.u0, o.v0);
+      s.holes.push(h);
+    });
+    var sm = new THREE.Mesh(new THREE.ShapeGeometry(s), M.osbIn);
+    sm.position.z = D;
+    entry.skin.add(sm);
+  })();
+
+  /* ---------- roof framing ---------- */
+  function beam(x1, y1, x2, y2, z, off) {
+    var dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy);
+    var nx = -dy / len, ny = dx / len;
+    if (ny < 0) { nx = -nx; ny = -ny; }
+    var m = new THREE.Mesh(new THREE.BoxGeometry(len, D, T), lum());
+    m.position.set((x1 + x2) / 2 + nx * off * D / 2, (y1 + y2) / 2 + ny * off * D / 2, z);
+    m.rotation.z = Math.atan2(dy, dx);
+    layers.roofFrame.add(m);
+  }
+  function rafterY(x) { return WALL_H + (HALF - Math.abs(x)) * PITCH; }
+  function truss(z, type) {
+    beam(HALF, WALL_H, 0, RIDGE, z, 1);
+    if (type === 'dormer') { beam(-HALF, DORMER_TOP, 0, RIDGE, z, 1); return; }
+    beam(-HALF, WALL_H, 0, RIDGE, z, 1);
+    if (type === 'plain') return;
+    beam(KX, rafterY(KX), CX, COLLAR, z, -1);
+    beam(-KX, rafterY(KX), -CX, COLLAR, z, -1);
+    beam(-CX, COLLAR, CX, COLLAR, z, -1);
+    var kp = new THREE.Mesh(new THREE.BoxGeometry(D, RIDGE - COLLAR - 2, T), lum());
+    kp.position.set(0, (RIDGE + COLLAR) / 2 - 1, z);
+    layers.roofFrame.add(kp);
+  }
+  for (var k = 1; k <= 20; k++) {
+    var z = -L / 2 + 16 * k;
+    if (z > ZD0 && z < ZD1) truss(z, 'dormer');
+    else truss(z, 'truss');
+    if (z === ZD0) { truss(z - T, 'truss'); truss(z - 2 * T, 'truss'); }
+    if (z === ZD1) { truss(z + T, 'truss'); truss(z + 2 * T, 'truss'); }
+  }
+  truss(-L / 2 - D / 2, 'plain');
+  truss(L / 2 + D / 2, 'plain');
+  box(layers.roofFrame, lum(), -T / 2, T / 2, RIDGE - 5.5, RIDGE + 1, -L / 2, L / 2);
+
+  /* ---------- roof sheathing: single-sided, seen from inside only ---------- */
+  function panel(pts, toward) {
+    var p = pts.map(function (a) { return new THREE.Vector3(a[0], a[1], a[2]); });
+    var nrm = new THREE.Vector3().subVectors(p[1], p[0]).cross(new THREE.Vector3().subVectors(p[2], p[0])).normalize();
+    var t = new THREE.Vector3(toward[0], toward[1], toward[2]).sub(p[0]);
+    if (nrm.dot(t) < 0) { p.reverse(); nrm.negate(); }
+    var e1 = new THREE.Vector3().subVectors(p[1], p[0]).normalize();
+    var e2 = new THREE.Vector3().crossVectors(nrm, e1);
+    var pos = [], uv = [];
+    for (var i = 1; i < p.length - 1; i++) {
+      [p[0], p[i], p[i + 1]].forEach(function (v) {
+        pos.push(v.x, v.y, v.z);
+        var d = new THREE.Vector3().subVectors(v, p[0]);
+        uv.push(d.dot(e1), d.dot(e2));
+      });
+    }
+    var g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    g.computeVertexNormals();
+    layers.roofSkin.add(new THREE.Mesh(g, M.osbFront));
+  }
+  var Z0 = -(L / 2 + D), Z1 = L / 2 + D, EY = WALL_H + SK, RY = RIDGE + SK, DY = DORMER_TOP + 4;
+  var inside = [0, 60, 0], zm = (ZD0 + ZD1) / 2;
+  panel([[HALF, EY, Z0], [HALF, EY, Z1], [0, RY, Z1], [0, RY, Z0]], inside);
+  panel([[-HALF, EY, Z0], [-HALF, EY, ZD0], [0, RY, ZD0], [0, RY, Z0]], inside);
+  panel([[-HALF, EY, ZD1], [-HALF, EY, Z1], [0, RY, Z1], [0, RY, ZD1]], inside);
+  panel([[-HALF, DY, ZD0], [-HALF, DY, ZD1], [0, RY, ZD1], [0, RY, ZD0]], [-40, 100, zm]);
+  panel([[-HALF, EY, ZD0], [-HALF, DY, ZD0], [0, RY, ZD0]], [-60, 110, zm]);
+  panel([[-HALF, EY, ZD1], [-HALF, DY, ZD1], [0, RY, ZD1]], [-60, 110, zm]);
+
+  /* ---------- 1 ft floor grid, measured from the double-door / entry-wall corner ---------- */
+  (function () {
+    var fine = [], bold = [], y = 0.08;
+    for (var i = 0; i * 12 <= W; i++) {
+      var x = -W / 2 + i * 12;
+      (i % 4 === 0 ? bold : fine).push(x, y, -L / 2, x, y, L / 2);
+    }
+    for (var j = 0; j * 12 <= L; j++) {
+      var zz = -L / 2 + j * 12;
+      (j % 4 === 0 ? bold : fine).push(-W / 2, y, zz, W / 2, y, zz);
+    }
+    function seg(arr, op) {
+      var g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+      layers.grid.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x3a3226, transparent: true, opacity: op })));
+    }
+    seg(fine, 0.22); seg(bold, 0.6);
+  })();
+
+  /* ---------- dimensions ---------- */
+  (function () {
+    var pts = [], y = 0.4;
+    function line(a, b) { pts.push(a[0], a[1], a[2], b[0], b[1], b[2]); }
+    var zw = 54, xl = 30;
+    line([-W / 2, y, zw], [W / 2, y, zw]);
+    line([-W / 2, y, zw - 5], [-W / 2, y, zw + 5]); line([W / 2, y, zw - 5], [W / 2, y, zw + 5]);
+    line([xl, y, -L / 2], [xl, y, L / 2]);
+    line([xl - 5, y, -L / 2], [xl + 5, y, -L / 2]); line([xl - 5, y, L / 2], [xl + 5, y, L / 2]);
+    var hx = -56, hz = L / 2 - 0.4;
+    line([hx, PLATE, hz], [hx, PLATE + STUD, hz]);
+    line([hx - 4, PLATE, hz], [hx + 4, PLATE, hz]); line([hx - 4, PLATE + STUD, hz], [hx + 4, PLATE + STUD, hz]);
+    var g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+    var lm = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0x0f5a47, depthTest: false }));
+    lm.renderOrder = 5;
+    layers.dims.add(lm);
+    if (hooks.label) {
+      [["15′ 5″", [0, 7, zw]], ["27′ 4″", [xl, 7, -20]], ["7′ 0″ stud", [hx, 46, hz - 2]]].forEach(function (d) {
+        var s = hooks.label(d[0]);
+        if (s) { s.position.set(d[1][0], d[1][1], d[1][2]); layers.dims.add(s); }
+      });
+    }
+  })();
+
+  return { root: root, layers: layers, size: { W: W, L: L, WALL_H: WALL_H, RIDGE: RIDGE, HALF: HALF } };
+}
+/* Machines. Inches. Each group's origin is the center of its overall footprint, on the floor.
+   Local +z is the operator side (front); local x is the machine's width or length as noted.
+   Overall sizes match the published numbers exactly; internal parts are simplified. */
+function buildMachines(THREE) {
+  var mats = {};
+  function mat(c, o) {
+    var k = c + '|' + (o || 1);
+    if (!mats[k]) mats[k] = new THREE.MeshLambertMaterial(o ? { color: c, transparent: true, opacity: o, depthWrite: false } : { color: c });
+    return mats[k];
+  }
+  var edgeMat = new THREE.LineBasicMaterial({ color: 0x15191a, transparent: true, opacity: 0.4 });
+  function edges(m) { m.add(new THREE.LineSegments(new THREE.EdgesGeometry(m.geometry, 25), edgeMat)); }
+  function B(g, c, x0, x1, y0, y1, z0, z1, o) {
+    var m = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0, y1 - y0, z1 - z0), mat(c, o));
+    m.position.set((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2);
+    edges(m); g.add(m); return m;
+  }
+  // cylinder: radius r, axis 'x'|'y'|'z', centered at (x,y,z), length len
+  function C(g, c, r, axis, x, y, z, len, o) {
+    var m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 28), mat(c, o));
+    if (axis === 'x') m.rotation.z = Math.PI / 2;
+    if (axis === 'z') m.rotation.x = Math.PI / 2;
+    m.position.set(x, y, z);
+    edges(m); g.add(m); return m;
+  }
+  var GREEN = 0x2f6e52, CREAM = 0xe6e0cc, IRON = 0x868b8d, DARK = 0x3a3f41, BLACK = 0x1e2022,
+      DELTA = 0x86939a, WOOD = 0xd9b27c, WHITE = 0xf3f3ef, RED = 0xb8402e, MAROON = 0x7e2a2a, CLEAR = 0xd7e3e8;
+
+  var list = [];
+  function machine(id, label, model, dims, note, build, params) {
+    var g = new THREE.Group();
+    g.userData.machine = { id: id, label: label, model: model, dims: dims, note: note };
+    g.userData.params = params || null;
+    g.userData.rebuild = function () {
+      for (var i = g.children.length - 1; i >= 0; i--) if (!g.children[i].isSprite) g.remove(g.children[i]);
+      build(g, g.userData.params);
+    };
+    build(g, g.userData.params);
+    list.push(g);
+  }
+  // flat shape (in x,y) extruded `depth` along +z, then placed; opt.rx rotates about x first
+  function X(g, c, shape, depth, pos, rx, o) {
+    var geo = new THREE.ExtrudeGeometry(shape, { depth: depth, bevelEnabled: false, curveSegments: 18 });
+    var m = new THREE.Mesh(geo, mat(c, o));
+    if (rx) m.rotation.x = rx;
+    m.position.set(pos[0], pos[1], pos[2]);
+    edges(m); g.add(m); return m;
+  }
+  function poly(pts) {
+    var sh = new THREE.Shape();
+    sh.moveTo(pts[0][0], pts[0][1]);
+    for (var i = 1; i < pts.length; i++) sh.lineTo(pts[i][0], pts[i][1]);
+    sh.lineTo(pts[0][0], pts[0][1]);
+    return sh;
+  }
+  // round bar from point a to point b
+  function L(g, c, a, b, r) {
+    var A = new THREE.Vector3(a[0], a[1], a[2]), Bv = new THREE.Vector3(b[0], b[1], b[2]);
+    var d = new THREE.Vector3().subVectors(Bv, A), len = d.length();
+    var m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 12), mat(c));
+    m.position.copy(A).add(Bv).multiplyScalar(0.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+    g.add(m); return m;
+  }
+  var CHROME = 0xc9cdd0, BLUE = 0x1f8fa3, PURPLE = 0x5b2346, PLY = 0x9a6634, PINE = 0xc79a5e, LAM = 0x2b2d30;
+
+  /* Grizzly G0891 15" fixed-table planer: 25" W x 49" L x 47-1/2" H; cabinet 21" x 18-1/2";
+     table 15-1/2" x 49" with cast-iron wings. Headstock rides on four columns; handwheel on top,
+     motor on the right side. x = width, z = feed direction. */
+  machine('planer', 'Planer', 'Grizzly G0891 15″ fixed-table planer',
+    [['Width', '25″'], ['Length with wings', '49″'], ['Height', '47½″'], ['Table', '15½″ × 49″'], ['Cabinet', '21″ × 18½″']],
+    'Feed runs along the 49″ length; leave board-length room at both ends. Mobile base not modeled.',
+    function (g) {
+      var TT = 32.5;                                                // table top (estimated from photos)
+      B(g, GREEN, -10.5, 10.5, 0, 26.5, -9.25, 9.25);              // enclosed cabinet 21 x 18-1/2
+      B(g, GREEN, -11, 11, 0, 2, -9.75, 9.75);                      // cabinet foot
+      var badge = C(g, 0x6d5a3a, 3.2, 'z', 0, 15, 9.35, 0.2); badge.scale.set(1.8, 1, 1);
+      B(g, CREAM, -11, 11, 26.5, 30.5, -10, 10);                    // base casting under the table
+      B(g, IRON, -7.75, 7.75, 30.5, TT, -10.5, 10.5);               // main table 15-1/2 x 21
+      [[-1, 1], [1, 1]].forEach(function (s) {                      // cast-iron wings, cream undersides
+        var z0 = s[0] < 0 ? -24.5 : 10.5, z1 = s[0] < 0 ? -10.5 : 24.5;
+        B(g, IRON, -7.75, 7.75, TT - 1, TT, z0, z1);
+        B(g, CREAM, -7, 7, TT - 2.75, TT - 1, s[0] < 0 ? -22 : 10.5, s[0] < 0 ? -10.5 : 22);
+      });
+      [[-9.5, -6.5], [9.5, -6.5], [-9.5, 6.5], [9.5, 6.5]].forEach(function (p) {
+        C(g, 0xb08d57, 1.1, 'y', p[0], 38.5, p[1], 16);             // brass-coloured columns
+        C(g, BLACK, 1.2, 'y', p[0], 46.75, p[1], 0.5);
+      });
+      B(g, CREAM, -11, 9.5, 35, 44, -8, 8);                         // headstock
+      B(g, CREAM, -11, 9.5, 41, 44, 8, 9.5);                        // front lip where "G0891" is cast
+      B(g, GREEN, -6, 4, 41.8, 43.2, 9.5, 9.6);                     // model number plate
+      B(g, BLACK, 9.5, 12.5, 33, 44.5, -7.5, 5);                    // motor and gearbox, right side
+      B(g, BLACK, -6, 6, 39, 44.5, -11.5, -8);                      // chip hood at the outfeed side
+      C(g, BLACK, 2, 'z', 0, 42, -12.5, 2);                         // 4" dust port
+      C(g, CHROME, 0.5, 'y', 3, 45.5, 0, 3);                        // handwheel shaft
+      var ring = new THREE.Mesh(new THREE.TorusGeometry(4.6, 0.4, 10, 36), mat(CHROME));
+      ring.rotation.x = Math.PI / 2; ring.position.set(3, 46.6, 0); g.add(ring);
+      C(g, CHROME, 0.35, 'y', 6.2, 47.05, 2.5, 0.9);                // spinner, top at 47-1/2
+      B(g, WHITE, -12.5, -11, 22, 29, -3, 3);                       // switch box, left side
+    });
+
+  /* Grizzly G1026 shaper: 30" W x 30-1/2" D x 39-1/2" H; table 28-1/4" x 30-1/2" at 34"; footprint 21" x 23-1/2". */
+  machine('shaper', 'Shaper', 'Grizzly G1026 3 HP shaper',
+    [['Width', '30″'], ['Depth', '30½″'], ['Height', '39½″'], ['Table height', '34″']],
+    'Mobile base and sliding jig not modeled.',
+    function (g) {
+      B(g, GREEN, -10.5, 10.5, 0, 32.5, -11.75, 11.75);             // cabinet 21 x 23.5
+      B(g, IRON, -13.25, 15, 32.5, 34, -15.25, 15.25);              // table 28.25 x 30.5, top at 34
+      C(g, DARK, 3.5, 'y', 0, 34.02, 0, 0.04);                      // insert ring
+      C(g, IRON, 0.5, 'y', 0, 35.5, 0, 3);                          // spindle
+      B(g, WOOD, -12, -1.5, 34, 37, -5, -3);                        // fence faces (behind spindle)
+      B(g, WOOD, 1.5, 12, 34, 37, -5, -3);
+      B(g, IRON, -6, 6, 34, 37.5, -11, -5);                         // fence casting
+      B(g, IRON, -4, 4, 37.5, 39.5, -8, -2);                        // guard / dust hood, top at 39.5
+      C(g, IRON, 3.5, 'z', 0, 20, 12.6, 1.7);                       // height handwheel on front
+      B(g, WHITE, -15, -10.5, 22, 30, -4, 4);                       // switch box, to x = -15
+    });
+
+  /* Grizzly G1028Z2 dust collector: 33-1/2" L x 21-1/2" W x 78" H; 19-1/2" bags.
+     x = length (blower end at -x), z = width. */
+  machine('dust', 'Dust collector', 'Grizzly G1028Z2 1½ HP dust collector',
+    [['Length', '33½″'], ['Width', '21½″'], ['Height', '78″'], ['Bags', '19½″ dia.']],
+    'Mobile on its own casters.',
+    function (g) {
+      B(g, DARK, -16.75, 16.75, 2.5, 4.5, -10.75, -9.25);           // base rails
+      B(g, DARK, -16.75, 16.75, 2.5, 4.5, 9.25, 10.75);
+      B(g, DARK, -16.75, -15.25, 2.5, 4.5, -9.25, 9.25);
+      B(g, DARK, 15.25, 16.75, 2.5, 4.5, -9.25, 9.25);
+      [[-15, -9.5], [15, -9.5], [-15, 9.5], [15, 9.5]].forEach(function (p) { C(g, BLACK, 1.25, 'x', p[0], 1.25, p[1], 1); });
+      B(g, GREEN, -12, -5, 4.5, 12.5, -6, 6);                       // motor mount
+      C(g, GREEN, 7.5, 'z', -8.5, 20, -1.5, 9);                     // impeller housing
+      C(g, GREEN, 4.5, 'z', -8.5, 20, 6.875, 7.75);                 // motor, to z = 10.75
+      C(g, BLACK, 3, 'x', -15.875, 20, -1.5, 1.75);                 // inlet, to x = -16.75
+      B(g, GREEN, -10, -3.5, 24, 35, -2.5, 2.5);                    // outlet duct
+      B(g, BLACK, 5.75, 7.25, 4.5, 32, -10.6, -9.9);                // bag-ring posts
+      B(g, BLACK, 5.75, 7.25, 4.5, 32, 9.9, 10.6);
+      C(g, CLEAR, 9.75, 'y', 6.5, 18.25, 0, 27.5, 0.45);            // lower plastic bag
+      C(g, GREEN, 10, 'y', 6.5, 34.5, 0, 5);                        // collector ring
+      C(g, WHITE, 9.75, 'y', 6.5, 56.5, 0, 39);                     // upper filter bag
+      C(g, WHITE, 9, 'y', 6.5, 77, 0, 2);                           // bag top, to 78
+    });
+
+  /* Delta DJ-15 6" jointer: 55-1/2" L x 21" D x 37" H (used-listing figures).
+     x = table length, z = depth (fence at back, handles at front). */
+  machine('jointer', 'Jointer', 'Delta DJ-15 6″ jointer',
+    [['Length', '55½″'], ['Depth', '21″'], ['Height', '37″']],
+    'Sizes come from a used listing, not a Delta spec sheet. Leave board-length clearance at both ends. Mobile base not modeled.',
+    function (g) {
+      B(g, DELTA, -11, 11, 0, 28, -9, 9);                           // enclosed stand
+      B(g, DELTA, -22, 22, 28, 32, -6, 6);                          // base casting
+      B(g, IRON, -27.75, 2.75, 32, 34.5, -4.75, 4.75);              // infeed table
+      B(g, IRON, 5.25, 27.75, 32, 34.5, -4.75, 4.75);               // outfeed table
+      C(g, DARK, 1.5, 'z', 4, 32.5, 0, 9);                          // cutterhead
+      C(g, MAROON, 5, 'y', 1.5, 34.9, 1, 0.8);                      // cutterhead guard
+      B(g, IRON, -17.5, 17.5, 34.5, 37, -4.75, -3.5);               // fence, top at 37
+      B(g, DELTA, -3, 8, 30, 34, -10.5, -4.75);                     // fence bracket, to z = -10.5
+      B(g, DARK, -15, -13, 29, 31, 6, 10.5);                        // table lever, to z = 10.5
+      B(g, RED, 4, 8, 22, 26, 9, 10);                               // switch
+      C(g, DELTA, 2.25, 'x', -13, 20, 0, 4);                        // dust chute
+    });
+
+  /* Husky 52" 9-drawer mobile workbench: 55-1/4" W (with side handle) x 24-1/2" D x 37" H.
+     Body 52" wide; handle on the +x end; drawers face +z. */
+  machine('bench', 'Workbench', 'Husky 52″ 9-drawer mobile workbench',
+    [['Width with handle', '55¼″'], ['Body width', '52″'], ['Depth', '24½″'], ['Height', '37″']],
+    'Drawers open toward the front.',
+    function (g) {
+      var X0 = -27.625, X1 = 24.375, DRW = 0x2a2c2f, PULL = 0x9a9da0;
+      B(g, BLACK, X0, X1, 5, 36, -12.25, 11.75);                    // steel body
+      B(g, WOOD, X0, X1, 36, 37, -12.25, 12.25);                    // 1" wood top
+      function drawer(x0, x1, y0, y1) {
+        B(g, DRW, x0, x1, y0, y1, 11.75, 12.1);
+        B(g, PULL, x0 + 1, x1 - 1, y1 - 1.3, y1 - 0.6, 12.1, 12.25);
+      }
+      drawer(X0 + 1.5, X1 - 1.5, 30, 34.5);                         // full-width top drawer
+      [[25, 29.3], [20.5, 24.8], [16, 20.3], [6.5, 15.8]].forEach(function (r) {
+        drawer(X0 + 1.5, -0.5, r[0], r[1]);                         // left column
+        drawer(0.5, X1 - 1.5, r[0], r[1]);                          // right column
+      });
+      [[X0 + 2, -9.75], [X1 - 2, -9.75], [X0 + 2, 9.75], [X1 - 2, 9.75]].forEach(function (p) {
+        C(g, BLACK, 2, 'x', p[0], 2, p[1], 1.75);                   // 5" casters
+        B(g, DARK, p[0] - 1.5, p[0] + 1.5, 4, 5, p[1] - 1.5, p[1] + 1.5);
+      });
+      B(g, PULL, X1, 27.1, 29.5, 31, -9, -7.5);                     // handle standoffs
+      B(g, PULL, X1, 27.1, 29.5, 31, 7.5, 9);
+      C(g, PULL, 0.525, 'z', 27.1, 30.25, 0, 18);                   // grip, to x = 27.625
+    });
+
+  /* Grizzly G0651 10" Extreme Series cabinet saw, without the outfeed table.
+     Published: 91-1/2" front rail, table 75-3/4" W x 27" D (main 21-1/4" + left wing + 42-1/2" extension),
+     34-7/8" to the table, blade 14-7/8" back from the table front, 40-1/4" fence, 40-5/8" to the guard top.
+     x = 0 at the blade; z = 0 at the table front; +z is the operator side. */
+  machine('saw', 'Table saw', 'Grizzly G0651 10″ cabinet saw',
+    [['Width (rail)', '91½″'], ['Depth, no outfeed', '44″'], ['Height to guard', '40⅝″'], ['Table', '75¾″ × 27″'], ['Table height', '34⅞″'], ['Rip capacity', '52″ right']],
+    'With the outfeed table attached the total depth is Grizzly\'s 75″. Fence is shown 20″ right of the blade.',
+    function (g) {
+      var TOP = 34.875, CI = TOP - 1.5;
+      // cabinet 21 x 22-7/8 with flared base and the "Extreme Series" plate
+      B(g, GREEN, -11.5, 11.5, 0, 5, -24.5, -0.5);
+      B(g, 0x5b5f60, -5, 5, 1.2, 3.8, -0.5, -0.3);
+      B(g, GREEN, -10.5, 10.5, 5, CI, -23.4, -1);
+      B(g, CREAM, -7, 7, 6.5, 19.5, -1, -0.8);                      // front access panel
+      B(g, BLACK, 6, 9, 20, 24, -1, -0.2);                          // bevel readout
+      // slanted motor cover on the left side
+      X(g, GREEN, poly([[-10.5, 7], [-17.5, 7], [-17.5, 18], [-12.5, 31], [-10.5, 31]]), 15, [0, 0, -19]);
+      var hw = new THREE.Mesh(new THREE.TorusGeometry(4.3, 0.35, 10, 30), mat(CHROME));
+      hw.position.set(0, 25.5, -0.2); g.add(hw);                    // blade-height handwheel (front)
+      C(g, GREEN, 1.2, 'z', 0, 25.5, -0.5, 1.2);
+      var hw2 = new THREE.Mesh(new THREE.TorusGeometry(4.3, 0.35, 10, 30), mat(CHROME));
+      hw2.rotation.y = Math.PI / 2; hw2.position.set(11.6, 25.5, -11); g.add(hw2);  // tilt handwheel (right side)
+      // tables
+      B(g, IRON, -10.625, 10.625, CI, TOP, -27, 0);                 // main cast iron 21-1/4 x 27
+      B(g, IRON, -22.625, -10.75, CI, TOP, -27, 0);                 // left cast wing
+      B(g, 0x6f7475, -2.5, 2.5, TOP - 0.01, TOP + 0.01, -21, -9);   // throat plate
+      [-6.5, 6.5].forEach(function (x) { B(g, 0x56595a, x - 0.4, x + 0.4, TOP - 0.02, TOP + 0.005, -27, 0); });
+      B(g, LAM, 10.75, 53.125, TOP - 0.75, TOP, -27, 0);            // extension table 42-1/2 x 27
+      B(g, GREEN, 10.75, 53.125, TOP - 3.5, TOP - 0.75, -27, -25.5);
+      B(g, GREEN, 51.6, 53.125, TOP - 3.5, TOP - 0.75, -25.5, -1.5);
+      [-2.5, -24.5].forEach(function (z) { B(g, GREEN, 50.6, 52.1, 0, TOP - 3.5, z - 0.75, z + 0.75); });
+      B(g, GREEN, 30, 52.1, 9, 10, -25.5, -1.5);                    // lower shelf
+      // rails, switch, fence
+      B(g, IRON, -35.125, 56.375, TOP - 3.5, TOP - 0.25, 0, 0.6);   // front rail angle, 91-1/2" long
+      B(g, DARK, -35.125, 56.375, TOP - 5.5, TOP - 2.5, 0.6, 3.3);  // rail tube
+      B(g, IRON, -22.625, 56.375, TOP - 3, TOP - 1, -29, -27);      // 79" rear rail
+      B(g, WHITE, -32, -26, TOP - 11, TOP - 5.5, 0.6, 3.6);         // rail-mounted switch
+      B(g, RED, -30.5, -28, TOP - 8, TOP - 6, 3.6, 4.1);
+      var FX = 20;
+      B(g, 0xb9bec1, FX, FX + 4.125, TOP, TOP + 2.5, -34.75, 0);    // fence body 4-1/8 x 2-1/2, 40-1/4 long
+      B(g, DARK, FX - 0.5, FX + 4.6, TOP - 6, TOP + 3, 0, 5.5);     // fence head over the rail
+      B(g, BLACK, FX + 1, FX + 3, TOP + 1, TOP + 2.5, 5.5, 9.25);   // fence lock handle
+      // blade and guard
+      C(g, 0x8a8f92, 5, 'x', 0, TOP + 3.1875 - 5, -14.875, 0.125);
+      B(g, CLEAR, -1.6, 1.6, TOP + 1.2, 40.625, -22, -7.5, 0.5);
+      B(g, IRON, -0.06, 0.06, TOP, TOP + 4.5, -23, -18);
+    });
+
+  /* G0651 outfeed (rear extension) table. Depth 38-3/4" = 65-3/4" overall table depth minus the 27" main table.
+     Width 40" is estimated from photos. z = 0 is the edge that bolts to the saw's rear rail; it runs to -z. */
+  machine('outfeed', 'Outfeed table', 'Grizzly G0651 outfeed table',
+    [['Width', '40″ (estimated)'], ['Depth', '38¾″'], ['Top height', '34⅞″']],
+    'Bolts to the saw\'s rear rail, centered behind the blade. Separate here so you can move it.',
+    function (g) {
+      var TOP = 34.875, W = 20, D = 38.75, R = 4;
+      var sh = new THREE.Shape();
+      sh.moveTo(-W, 0); sh.lineTo(W, 0); sh.lineTo(W, D - R); sh.quadraticCurveTo(W, D, W - R, D);
+      sh.lineTo(-W + R, D); sh.quadraticCurveTo(-W, D, -W, D - R); sh.lineTo(-W, 0);
+      X(g, 0x9c7a52, sh, 0.75, [0, TOP - 0.75, 0], -Math.PI / 2);  // MDF top, rounded far corners
+      [-6.5, 6.5].forEach(function (x) { B(g, 0x7a5a36, x - 0.45, x + 0.45, TOP - 0.02, TOP + 0.005, -16, 0); });
+      B(g, GREEN, -W + 1, W - 1, TOP - 3.75, TOP - 0.75, -1.5, 0);  // bracket on the near edge
+      B(g, GREEN, -W + 1, -W + 2.5, TOP - 3.75, TOP - 0.75, -D + 2, -1.5);
+      B(g, GREEN, W - 2.5, W - 1, TOP - 3.75, TOP - 0.75, -D + 2, -1.5);
+      B(g, GREEN, -W + 1, W - 1, TOP - 3.75, TOP - 0.75, -D + 2, -D + 3.5);
+      [-W + 3, W - 3].forEach(function (x) {
+        C(g, 0xb4b9bc, 0.9, 'y', x, (TOP - 3.75) / 2 + 0.75, -D + 4, TOP - 4.5);  // silver legs
+        B(g, BLACK, x - 1.5, x + 1.5, 0, 0.75, -D + 2.5, -D + 5.5);
+      });
+      B(g, GREEN, -W + 2, W - 2, 10, 10.75, -D + 5, -3);            // lower shelf
+      B(g, GREEN, -W + 2, W - 2, 10.75, 14, -D + 5, -D + 6);
+    });
+
+  /* Grizzly G1014Z 6" x 48" belt / 9" disc sander on its stand, belt horizontal as in your photos.
+     Published: 30" W x 24" D, stand footprint 23" x 19", disc table 35" from the floor, 56" tall with the belt vertical.
+     Disc on the right (+x) end; +z is the front. */
+  machine('sander', 'Belt/disc sander', 'Grizzly G1014Z 6″ × 48″ belt / 9″ disc sander',
+    [['Width', '30″'], ['Depth', '24″'], ['Height, belt flat', '≈ 39″'], ['Height, belt vertical', '56″'], ['Disc table height', '35″']],
+    'Belt arm tilts 0–90°. Flat-belt height is estimated; Grizzly lists 56″ with the belt raised. Stand casters not modeled.',
+    function (g) {
+      var ST = 26, BASE = ST + 3.5, BELT = 0x6b3a2a, BX0 = -15, BX1 = 7;
+      // open black stand: splayed legs, top frame 16-1/2 x 15, floor footprint 23 x 19
+      [[-1, -1], [1, -1], [-1, 1], [1, 1]].forEach(function (s) {
+        B(g, BLACK, s[0] * 11.5 - 1, s[0] * 11.5 + 1, 0, 1, s[1] * 9.5 - 1, s[1] * 9.5 + 1);
+        L(g, BLACK, [s[0] * 10.8, 1, s[1] * 8.8], [s[0] * 7.6, ST - 1, s[1] * 6.9], 0.7);
+      });
+      B(g, BLACK, -8.25, 8.25, ST - 1.5, ST, -7.5, 7.5);
+      B(g, BLACK, -10, 10, 8, 8.75, -8, 8);                         // lower shelf
+      // cast base and motor
+      B(g, GREEN, -10, 6, ST, BASE, -7, 6);
+      C(g, BLACK, 4, 'x', 3.5, BASE + 4.5, -2, 9);                   // motor under the belt, toward the disc
+      // belt assembly, horizontal, running left to right
+      B(g, GREEN, BX0, BX1, BASE + 3, BASE + 7, -5, 3);             // belt bed
+      B(g, BELT, BX0 + 1.5, BX1 - 1.5, BASE + 7, BASE + 7.3, -4, 2);
+      C(g, IRON, 1.6, 'z', BX0 + 1.6, BASE + 5.6, -1, 7.6);         // idler roller
+      C(g, IRON, 1.6, 'z', BX1 - 1.6, BASE + 5.6, -1, 7.6);         // drive roller
+      B(g, IRON, BX0 + 1, BX1 - 1, BASE + 7.3, BASE + 9.5, -5.5, -4.5);  // back stop
+      C(g, GREEN, 1.25, 'z', -8, BASE + 5, -7.5, 5);                // belt dust port to the back
+      // disc and table on the right end
+      C(g, IRON, 4.5, 'x', 9.2, BASE + 4.5, -0.5, 0.6);             // 9" disc
+      var dg = C(g, GREEN, 5.6, 'x', 8.4, BASE + 4.5, -0.5, 1.4);   // disc guard
+      B(g, IRON, 9, 15, 34, 35, -6.625, 5.625);                     // 6 x 12-1/4 disc table at 35"
+      B(g, GREEN, 9.4, 11, BASE, 34, -2, 1);                        // table bracket
+      B(g, CHROME, 11, 14, 35, 35.6, -1.5, 1.5);                    // miter gauge
+      // front lever and rear housing set the 24" depth
+      B(g, DARK, -6, -4, BASE + 1, BASE + 2.5, 6, 12);              // belt tilt lock lever
+      B(g, GREEN, -2.5, 2.5, ST + 0.5, BASE + 3, -12, -7);          // rear motor fan housing
+    });
+
+  /* Rockwell/Delta 15" floor drill press (DP220 head): your measured envelope 15" W x 22" D x 67" H.
+     Round column at the back, square table, step-pulley "bullet" cover on top, motor behind the column. */
+  machine('drill', 'Drill press', 'Rockwell/Delta 15″ floor drill press',
+    [['Width', '15″'], ['Depth', '22″'], ['Height', '67″']],
+    'Overall size is your measurement; internal parts are approximate.',
+    function (g) {
+      var GR = 0x8f979b, CZ = -5;
+      B(g, GR, -6.5, 6.5, 0, 3, -8.5, 11);                          // slotted base
+      [-3, 3].forEach(function (x) { B(g, 0x4a4f52, x - 0.5, x + 0.5, 3, 3.05, -2, 9); });
+      C(g, 0x6c7377, 1.375, 'y', 0, 29.5, CZ, 53);                  // column
+      C(g, GR, 2.2, 'y', 0, 28.5, CZ, 5);                           // table collar
+      B(g, GR, -1.5, 1.5, 27, 29, CZ + 1.5, -1);                    // table arm
+      B(g, GR, -5.5, 5.5, 29, 30.5, -1.5, 9.5);                     // table 11 x 11
+      [-2.5, 2.5].forEach(function (x) { B(g, 0x4a4f52, x - 0.4, x + 0.4, 30.5, 30.55, 0, 8); });
+      C(g, GR, 2.4, 'y', 0, 54, CZ, 8);                             // head collar on the column
+      B(g, GR, -3.5, 3.5, 50, 58, CZ + 1, 4.5);                     // head casting
+      C(g, CHROME, 1.1, 'y', 0, 45.5, 2.5, 9);                      // quill, 7-1/2" from column
+      C(g, 0x55595c, 1, 'y', 0, 39.5, 2.5, 3);                      // chuck
+      C(g, GR, 1.2, 'x', 4.2, 52, 0.5, 1.4);                        // feed hub, right side
+      [0, 2.1, 4.2].forEach(function (a) {
+        L(g, CHROME, [4.6, 52, 0.5], [6.6, 52 + 2.8 * Math.cos(a), 0.5 + 2.8 * Math.sin(a)], 0.25);
+        var k = C(g, BLACK, 0.55, 'x', 7, 52 + 3 * Math.cos(a), 0.5 + 3 * Math.sin(a), 1);
+      });
+      C(g, BLACK, 0.6, 'x', -6.9, 56, -2, 1.2);                     // belt-tension knob, left side
+      L(g, CHROME, [-3.5, 56, -2], [-6.3, 56, -2], 0.3);
+      C(g, 0x55595c, 3.5, 'y', 0, 51, -7.5, 10);                    // motor behind the column
+      var dome = new THREE.Mesh(new THREE.SphereGeometry(1, 28, 18, 0, Math.PI * 2, 0, Math.PI / 2), mat(GR));
+      dome.scale.set(6, 8, 9.25); dome.position.set(0, 59, -0.75); edges(dome); g.add(dome);  // bullet guard, top at 67
+      C(g, GR, 6, 'y', 0, 58.5, -0.75, 1); g.children[g.children.length - 1].scale.set(1, 1, 9.25 / 6);
+      C(g, 0x9b2b2b, 1.1, 'z', 0, 63, 8.1, 0.2);                    // Delta badge
+    });
+
+  /* Makita 12" sliding compound miter saw on your custom stand: measured envelope 101" L x 40" D x 58" H.
+     Plywood center cabinet with a half-round front skirt, long pine wings with a back fence. +z is the front. */
+  machine('miter', 'Miter saw station', 'Makita 12″ slide miter saw on custom stand',
+    [['Length', '101″'], ['Depth', '40″'], ['Height', '58″']],
+    'Overall size is your measurement. Wing lengths, saw position and stand details are copied from the photo.',
+    function (g) {
+      var PT = 33, WT = 36, SX = 6;                                 // platform top, wing top, saw center x
+      // plywood center cabinet
+      [-12, 23].forEach(function (x) { B(g, PLY, x, x + 0.75, 0, PT - 0.75, -14, 18); });
+      B(g, PLY, -12, 23.75, 6, 6.75, -14, 18);                      // lower shelf
+      B(g, PLY, -12, 23.75, PT - 0.75, PT, -16, 19);                // saw platform
+      var half = new THREE.Shape(); half.absarc(0, 0, 16, Math.PI, 2 * Math.PI, false);
+      X(g, 0x9c4f24, half, 0.75, [SX, PT, 19.25]);                  // half-round front skirt
+      // wings: two 2x boards wide, 2x4 fence on edge at the back, flush with the saw table
+      [[-50.5, -12], [23.75, 50.5]].forEach(function (w) {
+        B(g, PINE, w[0], w[1], WT - 1.5, WT, -1.5, 5.5);
+        B(g, PINE, w[0], w[1], WT - 1.5, WT, 5.5, 12.5);
+        B(g, PINE, w[0], w[1], WT, WT + 3.5, -3, -1.5);
+        B(g, PINE, w[0], w[1], WT - 5, WT - 1.5, 4, 5.5);           // 2x4 stiffener under
+      });
+      [[-48.5, 2], [-48.5, 10], [48.5, 2], [48.5, 10]].forEach(function (p) {
+        B(g, PINE, p[0] - 1.75, p[0] + 1.75, 0, WT - 1.5, p[1] - 0.75, p[1] + 0.75);  // end legs
+      });
+      L(g, PINE, [-46, 4, 5], [-14, 30, 5], 0.9);                   // diagonal brace under the left wing
+      // saw base and turntable
+      B(g, CREAM, SX - 11, SX + 11, PT, WT - 1.2, -8, 11);
+      C(g, IRON, 7.5, 'y', SX, WT - 0.6, 3, 1.2);
+      B(g, IRON, SX - 4, SX + 4, PT + 0.5, WT - 0.1, 9, 14);        // miter scale and lock
+      B(g, IRON, SX - 11, SX - 1, WT, WT + 3.5, -3, -1.5);          // aluminum fences
+      B(g, IRON, SX + 1, SX + 11, WT, WT + 3.5, -3, -1.5);
+      // pivot, slide rails reaching 20" behind center, head raised
+      B(g, CREAM, SX - 3, SX + 3, WT - 1, WT + 9, -9, -4);
+      [SX - 2, SX + 2].forEach(function (x) { L(g, CHROME, [x, WT + 9.5, -20], [x, WT + 9.5, 1], 0.6); });
+      B(g, CREAM, SX - 3, SX + 3, WT + 8, WT + 11, -20, -18);
+      B(g, CREAM, SX - 2.5, SX + 2.5, WT + 7.5, WT + 13, -2, 4);    // carriage
+      C(g, CREAM, 7.5, 'x', SX - 1.5, WT + 11.5, 5, 3.5);           // upper blade guard
+      C(g, 0x6f7477, 6, 'x', SX, WT + 11.5, 5, 0.12);               // 12" blade
+      C(g, CLEAR, 6.3, 'x', SX + 0.6, WT + 9.5, 6, 1.4, 0.45);      // clear lower guard
+      C(g, BLUE, 3.2, 'x', SX + 5, WT + 14, 2.5, 6);                // motor
+      B(g, CREAM, SX + 0.5, SX + 3, WT + 17, 58, 8, 13);            // D-handle, top at 58
+      B(g, PURPLE, SX - 9, SX - 3, WT + 10, WT + 16, -9, -3);       // dust bag
+    });
+
+  /* Corner desk with editable sizes. Corner at the origin; piece A runs along +x, piece B along +z.
+     Backs sit on x = 0 and z = 0 so the desk tucks into a room corner. */
+  function deskDims(p) {
+    return [['A length', p.la + '″'], ['A depth', p.da + '″'], ['A height', p.ha + '″'],
+            ['B length', p.lb + '″'], ['B depth', p.db + '″'], ['B height', p.hb + '″']];
+  }
+  machine('desk', 'Corner desk', 'Generic L-shaped corner desk', deskDims,
+    'Lengths are measured along the back edge, corner included. Edit the sizes below.',
+    function (g, p) {
+      var TOPC = 0xcaa476, LEG = 0x2c2f31;
+      B(g, TOPC, 0, p.la, p.ha - 1, p.ha, 0, p.da);                 // piece A top
+      var bz0 = Math.min(p.da, p.lb - 1);
+      if (p.lb > p.da || p.hb !== p.ha) B(g, TOPC, 0, p.db, p.hb - 1, p.hb, p.hb === p.ha ? bz0 : 0, p.lb);  // piece B top
+      function leg(x, z, h) { B(g, LEG, x - 0.9, x + 0.9, 0, h - 1, z - 0.9, z + 0.9); }
+      leg(1.5, 1.5, Math.min(p.ha, p.hb));
+      leg(p.la - 1.5, 1.5, p.ha); leg(p.la - 1.5, p.da - 1.5, p.ha);
+      leg(1.5, p.lb - 1.5, p.hb); leg(p.db - 1.5, p.lb - 1.5, p.hb);
+      leg(p.db - 1.5, p.da - 1.5, Math.min(p.ha, p.hb));
+      B(g, LEG, 2.4, p.la - 2.4, p.ha - 12, p.ha - 1, 0.6, 1.2);    // modesty panels
+      B(g, LEG, 0.6, 1.2, p.hb - 12, p.hb - 1, 2.4, p.lb - 2.4);
+    }, { la: 60, da: 24, ha: 30, lb: 48, db: 24, hb: 30 });
+
+  return list;
+}
+if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buildMachines: buildMachines };
+</script>
+
+<script>
+(function () {
+  var stage = document.getElementById('stage');
+  var renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ antialias: true });
+  } catch (err) {
+    document.getElementById('fail').style.display = 'flex';
+    return;
+  }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  stage.appendChild(renderer.domElement);
+
+  // OSB flake texture
+  function osbTexture() {
+    var c = document.createElement('canvas'); c.width = c.height = 256;
+    var x = c.getContext('2d');
+    x.fillStyle = '#b88a54'; x.fillRect(0, 0, 256, 256);
+    var shades = ['#c99c63', '#a87a45', '#d2aa74', '#9c7040', '#bf9159'];
+    for (var i = 0; i < 1100; i++) {
+      x.save();
+      x.translate(Math.random() * 256, Math.random() * 256);
+      x.rotate(Math.random() * Math.PI);
+      x.globalAlpha = 0.55;
+      x.fillStyle = shades[i % shades.length];
+      x.fillRect(-9, -2, 10 + Math.random() * 14, 2 + Math.random() * 4);
+      x.restore();
+    }
+    var t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(1 / 48, 1 / 48);
+    return t;
+  }
+  function label(text) {
+    var c = document.createElement('canvas'); c.width = 512; c.height = 128;
+    var x = c.getContext('2d');
+    x.font = '600 76px "Barlow Condensed", "Arial Narrow", Arial, sans-serif';
+    var w = Math.min(500, x.measureText(text).width + 56), l = (512 - w) / 2;
+    x.fillStyle = '#ffffff'; x.strokeStyle = '#0f5a47'; x.lineWidth = 6;
+    x.beginPath();
+    var r = 26, t = 10, b = 118;
+    x.moveTo(l + r, t); x.lineTo(l + w - r, t); x.quadraticCurveTo(l + w, t, l + w, t + r);
+    x.lineTo(l + w, b - r); x.quadraticCurveTo(l + w, b, l + w - r, b);
+    x.lineTo(l + r, b); x.quadraticCurveTo(l, b, l, b - r);
+    x.lineTo(l, t + r); x.quadraticCurveTo(l, t, l + r, t); x.closePath();
+    x.fill(); x.stroke();
+    x.fillStyle = '#12302a'; x.textAlign = 'center'; x.textBaseline = 'middle';
+    x.fillText(text, 256, 68);
+    var s = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), depthTest: false, transparent: true }));
+    s.scale.set(64, 16, 1);
+    s.renderOrder = 6;
+    return s;
+  }
+
+  var scene = new THREE.Scene();
+  var shed = buildShed(THREE, { osbMap: osbTexture(), label: label });
+  scene.add(shed.root);
+  var machines = buildMachines(THREE);
+  var mGroup = new THREE.Group();
+  function topOf(g) {
+    var b = new THREE.Box3();
+    g.traverse(function (o) { if (o.isMesh) { o.geometry.computeBoundingBox(); b.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrix)); } });
+    return b.max.y;
+  }
+  machines.forEach(function (g) {
+    var lab = label(g.userData.machine.label);
+    if (lab) { lab.scale.set(44, 11, 1); lab.position.y = topOf(g) + 10; g.add(lab); g.userData.sprite = lab; }
+    mGroup.add(g);
+  });
+  scene.add(mGroup);
+  shed.layers.machines = mGroup;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8f7c5c, 0.95));
+  var sun = new THREE.DirectionalLight(0xfff2dc, 0.55);
+  sun.position.set(220, 420, -160);
+  scene.add(sun);
+  var fill = new THREE.PointLight(0xffe9c8, 0.35, 0, 2);
+  fill.position.set(0, 110, 0);
+  scene.add(fill);
+
+  var camera = new THREE.PerspectiveCamera(55, 1, 2, 6000);
+  var controls = new THREE.OrbitControls(camera, renderer.domElement);
+  controls.enableDamping = true;
+  controls.dampingFactor = 0.12;
+  controls.maxPolarAngle = Math.PI * 0.85;
+  controls.minDistance = 10;
+  controls.maxDistance = 1400;
+
+  function setLayer(name, on) {
+    shed.layers[name].visible = on;
+    var b = document.querySelector('[data-layer="' + name + '"]');
+    if (b) b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  }
+  var views = {
+    over:  { pos: [-330, 250, -420], tgt: [0, 45, 10] },
+    plan:  { pos: [0, 600, 1], tgt: [0, 0, 0], hide: ['roofFrame'] },
+    front: { pos: [0, 66, 138], tgt: [0, 62, 60], show: ['roofFrame', 'roofSkin', 'wallSkin'] },
+    back:  { pos: [0, 66, -138], tgt: [0, 62, -60], show: ['roofFrame', 'roofSkin', 'wallSkin'] }
+  };
+  function setView(name) {
+    var v = views[name];
+    camera.position.set(v.pos[0], v.pos[1], v.pos[2]);
+    controls.target.set(v.tgt[0], v.tgt[1], v.tgt[2]);
+    (v.hide || []).forEach(function (l) { setLayer(l, false); });
+    (v.show || []).forEach(function (l) { setLayer(l, true); });
+    if (name === 'plan') fitPlan();
+    controls.update();
+  }
+  function fitPlan() {
+    // back the camera off until the whole floor fits the current viewport
+    var vfov = camera.fov * Math.PI / 180, a = camera.aspect;
+    var needV = (shed.size.L + 60) / 2 / Math.tan(vfov / 2);
+    var needH = (shed.size.W + 60) / 2 / (Math.tan(vfov / 2) * a);
+    camera.position.set(0, Math.max(needV, needH), 1);
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('[data-view]'), function (b) {
+    b.addEventListener('click', function () { setView(b.getAttribute('data-view')); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-layer]'), function (b) {
+    b.addEventListener('click', function () {
+      setLayer(b.getAttribute('data-layer'), b.getAttribute('aria-pressed') !== 'true');
+    });
+  });
+
+  function theme() {
+    var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#e6eae7';
+    scene.background = new THREE.Color(bg);
+  }
+  theme();
+  if (window.matchMedia) {
+    var mq = window.matchMedia('(prefers-color-scheme: dark)');
+    if (mq.addEventListener) mq.addEventListener('change', theme);
+  }
+  new MutationObserver(theme).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+
+  function resize() {
+    var w = stage.clientWidth || 1, h = stage.clientHeight || 1;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
+  window.addEventListener('resize', resize);
+  resize();
+
+  /* ---------- machine layout: select, drag on the floor, rotate, clearances ---------- */
+  var HW = shed.size.W / 2, HL = shed.size.L / 2;
+  // Starting layout. r = quarter turns. Local +z (front) faces the room.
+  var DEFAULTS = {
+    dust:    { x: 73.75, z: 151,  r: 0 },
+    bench:   { x: 79.25, z: 40,   r: -1 },
+    jointer: { x: 76,    z: -40,  r: -1 },
+    saw:     { x: -34,   z: -20,  r: 2 },
+    outfeed: { x: -34,   z: 7,    r: 2 },
+    planer:  { x: -79.5, z: 139,  r: 0 },
+    shaper:  { x: 75,    z: -130, r: 0 },
+    sander:  { x: 30,    z: 150,  r: 0 },
+    drill:   { x: 3,     z: 151,  r: 2 },
+    miter:   { x: -72.5, z: -112, r: 1 },
+    desk:    { x: 92.5,  z: 72,   r: 3 }
+  };
+  var DESK0 = { la: 60, da: 24, ha: 30, lb: 48, db: 24, hb: 30 };
+  var KEY = 'shed-layout-v3';
+  var byId = {};
+  machines.forEach(function (g) { byId[g.userData.machine.id] = g; });
+
+  function place(g, p) {
+    g.userData.r = ((p.r % 4) + 4) % 4;
+    g.rotation.y = g.userData.r * Math.PI / 2;
+    g.position.set(p.x, 0, p.z);
+    clampInside(g);
+  }
+  function footprint(g) {
+    g.updateMatrixWorld(true);
+    var b = new THREE.Box3();
+    g.traverse(function (o) {
+      if (o.isMesh) { o.geometry.computeBoundingBox(); b.union(o.geometry.boundingBox.clone().applyMatrix4(o.matrixWorld)); }
+    });
+    return b;
+  }
+  function clampInside(g) {
+    var b = footprint(g), dx = 0, dz = 0;
+    if (b.min.x < -HW) dx = -HW - b.min.x; else if (b.max.x > HW) dx = HW - b.max.x;
+    if (b.min.z < -HL) dz = -HL - b.min.z; else if (b.max.z > HL) dz = HL - b.max.z;
+    g.position.x += dx; g.position.z += dz;
+  }
+  function save() {
+    var out = {};
+    machines.forEach(function (g) {
+      var id = g.userData.machine.id;
+      out[id] = { x: g.position.x, z: g.position.z, r: g.userData.r };
+      if (g.userData.params) out[id].p = g.userData.params;
+    });
+    try { localStorage.setItem(KEY, JSON.stringify(out)); } catch (e) {}
+  }
+  function load() {
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+    machines.forEach(function (g) {
+      var id = g.userData.machine.id, sv = saved && saved[id];
+      if (g.userData.params && sv && sv.p) { g.userData.params = sv.p; rebuildMachine(g); }
+      place(g, sv || DEFAULTS[id]);
+    });
+  }
+  function rebuildMachine(g) {
+    g.userData.rebuild();
+    if (g.userData.sprite) g.userData.sprite.position.y = topOf(g) + 10;
+  }
+  load();
+
+  function ftin(v) {
+    v = Math.max(0, Math.round(v * 2) / 2);
+    var ft = Math.floor(v / 12), inch = v - ft * 12, whole = Math.floor(inch), half = inch !== whole;
+    var ins = (whole === 0 && half) ? '½' : whole + (half ? '½' : '');
+    return (ft ? ft + '′ ' : '') + ins + '″';
+  }
+  function esc(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  var selBox = new THREE.Box3Helper(new THREE.Box3(), 0x1c6b57);
+  selBox.material.depthTest = false; selBox.renderOrder = 4; selBox.visible = false;
+  scene.add(selBox);
+  var selected = null;
+  var panel = document.getElementById('sel');
+
+  function updatePanel() {
+    if (!selected) return;
+    var b = footprint(selected);
+    selBox.box.copy(b);
+    var rows = [
+      ['Entry-door wall', b.min.x + HW],
+      ['Two-window wall', HW - b.max.x],
+      ['Double-door end', b.min.z + HL],
+      ['Back wall', HL - b.max.z]
+    ];
+    document.getElementById('sel-clear').innerHTML = rows.map(function (r) {
+      return '<dt>' + r[0] + '</dt><dd' + (r[1] < 0.25 ? ' class="tight"' : '') + '>' + (r[1] < 0.25 ? 'Against wall' : ftin(r[1])) + '</dd>';
+    }).join('');
+  }
+  function select(g) {
+    selected = g;
+    var m = g ? g.userData.machine : null;
+    panel.hidden = !g;
+    selBox.visible = !!g;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-machine]'), function (b) {
+      b.setAttribute('aria-pressed', m && b.getAttribute('data-machine') === m.id ? 'true' : 'false');
+    });
+    if (!g) return;
+    document.getElementById('sel-name').textContent = m.label;
+    document.getElementById('sel-model').textContent = m.model;
+    var dims = typeof m.dims === 'function' ? m.dims(g.userData.params) : m.dims;
+    document.getElementById('sel-dims').innerHTML = dims.map(function (d) { return '<dt>' + esc(d[0]) + '</dt><dd>' + esc(d[1]) + '</dd>'; }).join('');
+    document.getElementById('sel-note').textContent = m.note;
+    renderParams(g);
+    updatePanel();
+  }
+  var PLAB = { la: 'A length', da: 'A depth', ha: 'A height', lb: 'B length', db: 'B depth', hb: 'B height' };
+  var PLIM = { la: [24, 144], lb: [24, 144], da: [12, 48], db: [12, 48], ha: [20, 48], hb: [20, 48] };
+  function renderParams(g) {
+    var box = document.getElementById('sel-params');
+    var p = g.userData.params;
+    box.hidden = !p;
+    if (!p) { box.innerHTML = ''; return; }
+    box.innerHTML = Object.keys(PLAB).map(function (k) {
+      return '<label for="p-' + k + '">' + PLAB[k] + '</label><input id="p-' + k + '" type="number" inputmode="decimal" step="0.5" min="' +
+        PLIM[k][0] + '" max="' + PLIM[k][1] + '" value="' + p[k] + '"><span>in</span>';
+    }).join('') + '<button type="button" id="p-reset">Default sizes</button>';
+    Object.keys(PLAB).forEach(function (k) {
+      document.getElementById('p-' + k).addEventListener('change', function (e) {
+        var v = parseFloat(e.target.value);
+        if (!isFinite(v)) { e.target.value = p[k]; return; }
+        v = Math.min(PLIM[k][1], Math.max(PLIM[k][0], Math.round(v * 2) / 2));
+        e.target.value = v;
+        p[k] = v;
+        if (p.lb < p.da + 6) { p.lb = p.da + 6; }
+        if (p.la < p.db + 6) { p.la = p.db + 6; }
+        applyParams(g);
+      });
+    });
+    document.getElementById('p-reset').addEventListener('click', function () {
+      g.userData.params = JSON.parse(JSON.stringify(DESK0));
+      applyParams(g); renderParams(g);
+    });
+  }
+  function applyParams(g) {
+    rebuildMachine(g); clampInside(g); save();
+    var m = g.userData.machine;
+    document.getElementById('sel-dims').innerHTML = m.dims(g.userData.params).map(function (d) { return '<dt>' + esc(d[0]) + '</dt><dd>' + esc(d[1]) + '</dd>'; }).join('');
+    updatePanel();
+  }
+  function rotateSel() {
+    if (!selected) return;
+    selected.userData.r = (selected.userData.r + 1) % 4;
+    selected.rotation.y = selected.userData.r * Math.PI / 2;
+    clampInside(selected);
+    updatePanel(); save();
+  }
+
+  var mrow = document.getElementById('mrow');
+  machines.forEach(function (g) {
+    var m = g.userData.machine, b = document.createElement('button');
+    b.type = 'button'; b.textContent = m.label;
+    b.setAttribute('data-machine', m.id); b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', function () {
+      if (!mGroup.visible) setLayer('machines', true);
+      select(selected === g ? null : g);
+    });
+    mrow.appendChild(b);
+  });
+  var reset = document.createElement('button');
+  reset.type = 'button'; reset.textContent = 'Reset layout';
+  reset.addEventListener('click', function () {
+    machines.forEach(function (g) {
+      if (g.userData.params) { g.userData.params = JSON.parse(JSON.stringify(DESK0)); rebuildMachine(g); }
+      place(g, DEFAULTS[g.userData.machine.id]);
+    });
+    if (selected) select(selected);
+    save(); updatePanel();
+  });
+  mrow.appendChild(reset);
+  document.getElementById('sel-close').addEventListener('click', function () { select(null); });
+  document.getElementById('sel-rot').addEventListener('click', rotateSel);
+  window.addEventListener('keydown', function (e) {
+    if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return;
+    if ((e.key === 'r' || e.key === 'R') && selected) { rotateSel(); e.preventDefault(); }
+    if (e.key === 'Escape') select(null);
+  });
+
+  var ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  var floorPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), hitP = new THREE.Vector3();
+  var drag = null;
+  function aim(e) {
+    var r = renderer.domElement.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+  }
+  function pick() {
+    if (!mGroup.visible) return null;
+    var hits = ray.intersectObjects(machines, true);
+    for (var i = 0; i < hits.length; i++) {
+      if (!hits[i].object.isMesh) continue;
+      var o = hits[i].object;
+      while (o && !o.userData.machine) o = o.parent;
+      if (o) return o;
+    }
+    return null;
+  }
+  // Capture on the container so a press on a machine never reaches the orbit controls.
+  stage.addEventListener('pointerdown', function (e) {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (drag) return;
+    aim(e);
+    var g = pick();
+    if (!g) return;
+    e.stopPropagation(); e.preventDefault();
+    select(g);
+    if (!ray.ray.intersectPlane(floorPlane, hitP)) return;
+    drag = { g: g, id: e.pointerId, ox: g.position.x - hitP.x, oz: g.position.z - hitP.z };
+    controls.enabled = false;
+    stage.style.cursor = 'grabbing';
+  }, true);
+  window.addEventListener('pointermove', function (e) {
+    if (!drag) {
+      if (e.pointerType === 'mouse' && e.target === renderer.domElement) { aim(e); stage.style.cursor = pick() ? 'grab' : ''; }
+      return;
+    }
+    if (e.pointerId !== drag.id) return;
+    aim(e);
+    if (!ray.ray.intersectPlane(floorPlane, hitP)) return;
+    drag.g.position.x = Math.round((hitP.x + drag.ox) * 2) / 2;   // half-inch steps
+    drag.g.position.z = Math.round((hitP.z + drag.oz) * 2) / 2;
+    clampInside(drag.g);
+    updatePanel();
+  });
+  function endDrag(e) {
+    if (!drag || e.pointerId !== drag.id) return;
+    drag = null; controls.enabled = true; stage.style.cursor = '';
+    save();
+  }
+  window.addEventListener('pointerup', endDrag);
+  window.addEventListener('pointercancel', endDrag);
+
+  if (window.innerWidth > 700) document.getElementById('spec').open = true;
+  setView('over');
+
+  (function loop() {
+    controls.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  })();
+})();
+</script>
+</body>
+</html>
