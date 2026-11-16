@@ -1371,6 +1371,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
 <script>
   // Every "Lambert" surface becomes a physically based one. Roughness and metalness are guessed from the color:
   // light/mid grays are machined steel or cast iron (some shine), near-black is paint or rubber, everything else is matte.
+  THREE.CheapLambert = THREE.MeshLambertMaterial;      // per-vertex lighting: used for the yard's trees and house
   (function () {
     var Std = THREE.MeshStandardMaterial;
     THREE.MeshLambertMaterial = function (p) {
@@ -1547,7 +1548,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     }
     var mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
     function instanced(geo, color, list, size) {
-      var m = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color: color }), list.length);
+      var m = new THREE.InstancedMesh(geo, new THREE.CheapLambert({ color: color }), list.length);
       list.forEach(function (t, i) {
         var s3 = size(t); q.setFromAxisAngle(up, t[3]); sc.set(s3[0], s3[1], s3[0]);
         mtx.compose(P(t[0], t[1]), q, sc); m.setMatrixAt(i, mtx);
@@ -1567,7 +1568,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     instanced(unit(new THREE.IcosahedronGeometry(0.3, 1), 0.68), 0x47672f, broad, function (t) { return [BH * t[2], BH * t[2] * 0.9]; });
 
     /* ---- the young trees you planted: cyan saplings ~10 ft, pink young trees 12–16 ft, sparse small leaves ---- */
-    var leaf = new THREE.MeshLambertMaterial({ color: 0x6f9a3c }), bark = new THREE.MeshLambertMaterial({ color: 0x6b5641 });
+    var leaf = new THREE.CheapLambert({ color: 0x6f9a3c }), bark = new THREE.CheapLambert({ color: 0x6b5641 });
     function young(u, v, H, trunkR, blobs, blobR) {
       var t = new THREE.Group();
       var tr = new THREE.Mesh(new THREE.CylinderGeometry(trunkR * 0.5, trunkR, H * 0.85, 7), bark); tr.position.y = H * 0.425; t.add(tr);
@@ -1582,7 +1583,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     [[664, 147], [546, 279], [443, 415], [225, 570]].forEach(function (p) { young(p[0], p[1], 120, 1, 9, 8); });
     [[913, 119, 192], [746, 217, 156], [627, 341, 168], [505, 483, 144], [288, 661, 180]].forEach(function (p) { young(p[0], p[1], p[2], 1.8, 13, 15); });
     // medium trees just off the tree line: crown as wide as the circle drawn on the screenshot
-    var leaf2 = new THREE.MeshLambertMaterial({ color: 0x4f7a34 });
+    var leaf2 = new THREE.CheapLambert({ color: 0x4f7a34 });
     MEDIUM.forEach(function (m) {
       var d = m[2], H = Math.max(170, d * 1.3), t = new THREE.Group();
       var tr = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.02, d * 0.035, H * 0.6, 8), bark); tr.position.y = H * 0.3; t.add(tr);
@@ -1595,12 +1596,12 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     });
     // shrubs along the front of the house
     [[1030, 100], [1036, 212], [1058, 318], [1092, 470]].forEach(function (p) {
-      var b = new THREE.Mesh(new THREE.IcosahedronGeometry(30, 1), new THREE.MeshLambertMaterial({ color: 0x3e5e2c }));
+      var b = new THREE.Mesh(new THREE.IcosahedronGeometry(30, 1), new THREE.CheapLambert({ color: 0x3e5e2c }));
       b.scale.set(1, 0.7, 1); b.position.copy(P(p[0], p[1], 18)); tall.add(b);
     });
 
     /* ---- the house: two hip-roofed blocks (sizes from the roof outline; height assumed two stories) ---- */
-    var siding = new THREE.MeshLambertMaterial({ color: 0xcfc9bc }), roofM = new THREE.MeshLambertMaterial({ color: 0x6e5646, side: THREE.DoubleSide });
+    var siding = new THREE.CheapLambert({ color: 0xcfc9bc }), roofM = new THREE.CheapLambert({ color: 0x6e5646, side: THREE.DoubleSide });
     function hipRoof(w, d, rise, over) {
       var W2 = w / 2 + over, D2 = d / 2 + over, swap = W2 > D2;
       if (swap) { var tmp = W2; W2 = D2; D2 = tmp; }
@@ -1624,12 +1625,12 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     block(1180, 412, 205, 182, 216, hr);
     // garage doors on the north wing, facing the paved apron
     [-1, 1].forEach(function (sgn) {
-      var gd = new THREE.Mesh(new THREE.BoxGeometry(108, 90, 2), new THREE.MeshLambertMaterial({ color: 0xe9e6de }));
+      var gd = new THREE.Mesh(new THREE.BoxGeometry(108, 90, 2), new THREE.CheapLambert({ color: 0xe9e6de }));
       gd.position.set(sgn * 70, 45, -182 * S / 2 - 1); wingA.add(gd);
     });
     // paver patio behind the house, with a dining table and umbrella, a sofa, a fire pit with chairs, and a grill
     (function () {
-      var pt = new THREE.Group(), L = function (c) { return new THREE.MeshLambertMaterial({ color: c }); };
+      var pt = new THREE.Group(), L = function (c) { return new THREE.CheapLambert({ color: c }); };
       function bx(c, w, h, d, x, y, z, ry) { var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), L(c)); m.position.set(x, y, z); if (ry) m.rotation.y = ry; pt.add(m); return m; }
       function cyl(c, r0, r1, h, x, y, z) { var m = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, h, 20), L(c)); m.position.set(x, y, z); pt.add(m); return m; }
       bx(0xb5aa9b, 262, 3, 647, 0, 1.5, 0);                                                   // pavers
@@ -1645,9 +1646,9 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       pt.position.copy(P(1300, 408)); pt.rotation.y = hr; tall.add(pt);
     })();
     // the car on the apron
-    var car = new THREE.Group(), paint = new THREE.MeshLambertMaterial({ color: 0x2b2f36 });
+    var car = new THREE.Group(), paint = new THREE.CheapLambert({ color: 0x2b2f36 });
     var body = new THREE.Mesh(new THREE.BoxGeometry(72, 26, 190), paint); body.position.y = 22; car.add(body);
-    var cab = new THREE.Mesh(new THREE.BoxGeometry(64, 20, 96), new THREE.MeshLambertMaterial({ color: 0x1d2128 })); cab.position.set(0, 45, -6); car.add(cab);
+    var cab = new THREE.Mesh(new THREE.BoxGeometry(64, 20, 96), new THREE.CheapLambert({ color: 0x1d2128 })); cab.position.set(0, 45, -6); car.add(cab);
     car.position.copy(P(1318, 122)); car.rotation.y = -0.9; tall.add(car);
 
     return { root: root, tall: tall, ground: ground };
@@ -1670,7 +1671,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   sun.position.set(220, 420, -160);
   scene.add(sun); scene.add(sun.target);
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
   sun.shadow.mapSize.set(2048, 2048);
   sun.shadow.bias = -0.0006;
   (function (c) { c.left = -320; c.right = 320; c.top = 320; c.bottom = -320; c.near = 1; c.far = 1400; })(sun.shadow.camera);
@@ -2331,6 +2332,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     return out;
   }
   function applyLayout(saved) {
+    wake();
     var entries = layoutEntries(saved), keep = {}, sid = selected && selected.userData.machine.id;
     entries.forEach(function (en) { var g = byId[en.id]; if (g && en.type && sigOf(g) === 't:' + en.type) keep[en.id] = g; });
     items.slice().forEach(function (g) { if (keep[g.userData.machine.id] !== g) removeItem(g); });
@@ -2991,7 +2993,12 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   // Colors in the model are display (sRGB) values. Real-unit lighting works in linear light, so in those scenes every
   // color and texture is converted and the final image is encoded back to sRGB; Even light uses them as they are.
   var linear = false;
-  function setColor(m, hex) { m.color.setHex(hex); if (linear) m.color.convertSRGBToLinear(); }
+  function setColor(m, hex) {
+    m.color.setHex(hex);
+    if (!linear) return;
+    m.color.convertSRGBToLinear();
+    if (m.isMeshLambertMaterial) m.color.multiplyScalar(1 / Math.PI);   // the per-vertex yard material is brighter by π in real-unit lighting
+  }
   function colorPass(force) {
     eachMat(function (m) {
       if (!m.color) return;
@@ -3011,6 +3018,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   var bounce = new THREE.AmbientLight(0xffffff, 0);
   scene.add(bounce);
   function applyScene() {
+    wake();
     var S = SCENES[sceneMode], phys = sceneMode !== 'studio';
     if (renderer.physicallyCorrectLights !== phys) {
       renderer.physicallyCorrectLights = phys;
@@ -3027,7 +3035,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     sun.color.setHex(S.sun[0]); sun.position.set(S.sun[2][0], S.sun[2][1], S.sun[2][2]);
     if (phys) [hemi.color, hemi.groundColor, sun.color].forEach(function (c) { c.convertSRGBToLinear(); });
     if (!phys) { hemi.intensity = S.hemi[2]; sun.intensity = S.sun[1]; fill.intensity = S.fill; bounce.intensity = 0; }
-    else { sun.intensity = S.lux.sun; fill.intensity = 0; }
+    else { fill.intensity = 0; }
     sun.castShadow = S.shadow;
     eachMat(function (m) { if (m.userData.glass) { m.userData.srgb = S.glass[0]; setColor(m, S.glass[0]); m.opacity = S.glass[1]; } });
     overlayFlags(); castShadows(); lampColors(); rigKey = null; shadowsNeed = true;
@@ -3040,7 +3048,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
      Strip: three downward cones spread along the 8′ length (the footprint is long, like the real light), plus an
      optional upward cone for uplight. Focus light: one cone shaped by the shade. Shadows go on the middle cone of each
      strip and on each focus light, at most 8 in all (the graphics card has a limited number of shadow slots). */
-  var MAX_SHADOWS = 8;
+  var MAX_SHADOWS = 6;
   function spotLight(color, cd, beam, soft, shadow) {
     var L = new THREE.SpotLight(color.clone().convertSRGBToLinear(), cd * IN2M2, 0, Math.min(Math.PI / 2 - 0.01, beam / 2 * Math.PI / 180), soft / 100, 2);
     if (shadow) {
@@ -3062,9 +3070,9 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       fx.forEach(function (g) {
         var parts = [];
         if (g.userData.dev === 'light') {
-          var down = St.lm * (1 - St.up / 100) / 3, cd = candela(down, St.beam, St.soft);
-          [-32, 0, 32].forEach(function (dz) {
-            var sh = dz === 0 && nShadow < MAX_SHADOWS; if (sh) nShadow++;
+          var down = St.lm * (1 - St.up / 100) / 2, cd = candela(down, St.beam, St.soft);
+          [-24, 24].forEach(function (dz) {
+            var sh = dz < 0 && nShadow < MAX_SHADOWS; if (sh) nShadow++;
             parts.push({ L: spotLight(cs, cd, St.beam, St.soft, sh), dz: dz, dy: -3, up: false });
           });
           if (St.up > 0) parts.push({ L: spotLight(cs, candela(St.lm * St.up / 100, 160, 50), 160, 50, false), dz: 0, dy: 0.5, up: true });
@@ -3092,10 +3100,10 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   /* ---- exposure that adapts like your eyes ----
      Estimate the light level where you're looking (no pixel reading needed), then ease the exposure toward it.
      Adaptation is partial and has a floor, so a dark night still looks dark and bright sun still looks bright. */
-  var expo = 1, lastT = 0;
+  var expo = 1, lastT = 0, sunNow = -1;
   function insideShed() { var c = camera.position; return Math.abs(c.x) < HW + 3 && Math.abs(c.z) < HL + 3 && c.y < SZ.RIDGE; }
   function adapt(now) {
-    var dt = lastT ? Math.min(0.25, (now - lastT) / 1000) : 0; lastT = now;
+    var dt = lastT ? Math.min(1, (now - lastT) / 1000) : 0; lastT = now;
     if (sceneMode === 'studio') return;
     var S = SCENES[sceneMode], b = bounceLux();
     var direct = fixtureLumens() * 0.5 / A_FLOOR;                      // average on the floor from the fixtures
@@ -3106,13 +3114,20 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     E = Math.max(8, Math.min(60000, E));
     var eff = Math.pow(E, 0.85) * Math.pow(300, 0.15);
     var target = 5 / eff;
-    expo = dt ? Math.exp(Math.log(expo) + (Math.log(target) - Math.log(expo)) * (1 - Math.exp(-dt / 0.7))) : target;
+    var ease = dt ? 1 - Math.exp(-dt / 0.7) : 1;
+    expo = Math.exp(Math.log(expo) + (Math.log(target) - Math.log(expo)) * ease);
     renderer.toneMappingExposure = expo;
+    // Indoors, your eyes adjust locally when you look at a window or a sun patch, so they never see the full 100:1 jump.
+    // Hold direct sun to a few times the indoor level while you're inside; outside it's at full strength.
+    var sunT = inside ? Math.min(S.lux.sun, eIn * 4) : S.lux.sun;
+    sunNow = sunNow < 0 ? sunT : Math.exp(Math.log(sunNow + 1e-3) + (Math.log(sunT + 1e-3) - Math.log(sunNow + 1e-3)) * ease);
+    sun.intensity = sunNow;
+    if (Math.abs(Math.log(expo / target)) > 0.01 || Math.abs(sunNow - sunT) > sunT * 0.01 + 1e-3) wake(2);
     // sky light: the daylight level inside when you're inside, the open sky outside
     hemi.intensity = inside ? S.lux.skyIn : S.lux.skyOut;
     bounce.color.copy(b.tint).convertSRGBToLinear(); bounce.intensity = b.lux;
   }
-  function setScene(m) { sceneMode = m; applyScene(); lastT = 0; }
+  function setScene(m) { sceneMode = m; applyScene(); lastT = 0; sunNow = -1; }
   Array.prototype.forEach.call(document.querySelectorAll('[data-scene]'), function (b) {
     b.addEventListener('click', function () { setScene(b.getAttribute('data-scene')); });
   });
@@ -3922,16 +3937,42 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (f) { setFinish('rock', !!f.rock); setFinish('pine', !!f.pine); setFinish('yard', f.yard !== false); } })();
   (function () { var L = null; try { L = JSON.parse(localStorage.getItem('shed-light-v1') || 'null'); } catch (e) {}
     if (L && SCENES[L.mode]) { sceneMode = L.mode; lampsOn = L.lamps !== false; } applyScene(); })();
-  (function loop() {
-    if (finish.pine && pineDirty) buildPine();
-    updateRig();
-    if (++shadowTick % 10 === 0) colorPass();                                       // convert pieces added since
-    if (shadowTick % 30 === 0) { castShadows(); lampColors(); overlayFlags(); }   // pick up pieces added or rebuilt since
-    adapt(performance.now());
-    if (shadowsNeed && sceneMode !== 'studio') { renderer.shadowMap.needsUpdate = true; shadowsNeed = false; }
-    updateRing();
+  /* ---- render only when something changed, and trade resolution for frame rate when the graphics chip is struggling ---- */
+  var awake = 120, lastDraw = 0, baseDPR = Math.min(window.devicePixelRatio || 1, 2), q = 1, ema = 16, streak = 0, prevT = 0;
+  function wake(n) { awake = Math.max(awake, n || 90); }
+  ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup', 'click', 'change', 'input', 'touchmove'].forEach(function (ev) {
+    window.addEventListener(ev, function () { wake(ev === 'pointermove' ? 8 : 90); }, { capture: true, passive: true });
+  });
+  window.addEventListener('resize', function () { wake(); });
+  document.addEventListener('visibilitychange', function () { wake(); });
+  controls.addEventListener('change', function () { wake(4); });
+  function tuneResolution(now) {
+    var dt = now - prevT; prevT = now;
+    if (dt > 1200) { streak = 0; return; }                       // first frame after idling says nothing about speed
+    ema += (dt - ema) * 0.1;
+    if (++streak < 12) return;
+    var nq = q;
+    if (ema > 36 && q > 0.5) nq = Math.max(0.5, q * 0.85);      // under ~28 fps: drop resolution
+    else if (ema < 19 && q < 1) nq = Math.min(1, q * 1.1);      // comfortably fast: bring it back
+    if (nq !== q) { q = nq; streak = 0; renderer.setPixelRatio(baseDPR * q); renderer.render(scene, camera); }   // resizing clears the picture: redraw in the same frame, so there's no flash
+  }
+  (function loop(now) {
+    now = now || performance.now();
     controls.update();
-    renderer.render(scene, camera);
+    if (drag || nudge || shadowsNeed || pineDirty && finish.pine) wake(3);
+    if (awake > 0 || now - lastDraw > 1000) {
+      if (awake > 0) awake--;
+      lastDraw = now;
+      if (finish.pine && pineDirty) buildPine();
+      updateRig();
+      if (++shadowTick % 10 === 0) colorPass();                                       // convert pieces added since
+      if (shadowTick % 30 === 0) { castShadows(); lampColors(); overlayFlags(); }   // pick up pieces added or rebuilt since
+      adapt(now);
+      if (shadowsNeed && sceneMode !== 'studio') { renderer.shadowMap.needsUpdate = true; shadowsNeed = false; }
+      updateRing();
+      renderer.render(scene, camera);
+      tuneResolution(now);
+    }
     requestAnimationFrame(loop);
   })();
 })();
