@@ -75,7 +75,7 @@ Add this to `docker-compose.yml`:
 Then start it with `docker compose up -d crack-shack` and open `http://<server>:8088`. That works from the LAN and from the tailnet.
 
 - The layout is stored in `./crack-shack-data/layout.json`. Back up that file to keep the layout safe.
-- The container runs as uid 1000. If the folder was created by root, run `sudo chown 1000:1000 crack-shack-data`.
+- The container fixes the data folder's ownership when it starts, then runs the app as an unprivileged user (uid 1000).
 - Save and Open ask whether to use this computer (a .json file) or the shop server. Layouts saved to the server are kept in `./crack-shack-data/layouts/` and can be opened from any device.
 - There is no login. Anyone who can reach the port can edit, so expose it only on the LAN or tailnet.
 

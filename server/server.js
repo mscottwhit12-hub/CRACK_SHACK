@@ -17,7 +17,9 @@ const TYPES = {
   '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.ico': 'image/x-icon'
 };
 
-fs.mkdirSync(SAVED, { recursive: true });
+// A data folder the app can't write to must not stop the app from loading: log it, keep serving, and saves report errors.
+try { fs.mkdirSync(SAVED, { recursive: true }); fs.accessSync(DATA_DIR, fs.constants.W_OK); }
+catch (e) { console.error(`Can't write to ${DATA_DIR} (${e.code}). Layouts won't save. On the host, run: sudo chown -R 1000:1000 <your data folder>`); }
 
 function readLayout() {
   try { return JSON.parse(fs.readFileSync(LAYOUT, 'utf8')); } catch (e) { return null; }
@@ -80,7 +82,8 @@ const server = http.createServer((req, res) => {
   if (url.pathname === '/api/layouts') {
     if (req.method !== 'GET') return send(res, 405, { error: 'Use GET.' });
     const list = [];
-    for (const f of fs.readdirSync(SAVED)) {
+    let files = []; try { files = fs.readdirSync(SAVED); } catch (e) {}
+    for (const f of files) {
       if (!f.endsWith('.json')) continue;
       try { const d = JSON.parse(fs.readFileSync(path.join(SAVED, f), 'utf8')); list.push({ name: d.name, savedAt: d.savedAt }); } catch (e) {}
     }
