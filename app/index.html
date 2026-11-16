@@ -266,6 +266,23 @@
     <button type="button" id="f-open" title="Open a saved layout">Open</button>
     <button type="button" id="f-print" title="Export a PDF of several views (Ctrl+P)">Print</button>
     <input type="file" id="layout-file" accept=".json,application/json" hidden>
+    <details class="more" id="lighting">
+      <summary>Lighting</summary>
+      <div class="menu">
+        <h2>Scene</h2>
+        <div class="toggles">
+          <button type="button" data-scene="studio" aria-pressed="true">Even light (no shadows)</button>
+          <button type="button" data-scene="day" aria-pressed="false">Daytime</button>
+          <button type="button" data-scene="dusk" aria-pressed="false">Dusk / dawn</button>
+          <button type="button" data-scene="night" aria-pressed="false">Night</button>
+        </div>
+        <h2>Fixtures</h2>
+        <div class="toggles">
+          <button type="button" id="lamps" aria-pressed="true">Shop lights: on</button>
+        </div>
+        <p>Daytime, dusk and night turn off the even light. Sun or moon comes through the windows, and the strip and focus lights light the shop when they're on.</p>
+      </div>
+    </details>
     <details class="more" id="lib">
       <summary>Library</summary>
       <div class="menu lib" id="lib-body"></div>
@@ -344,6 +361,7 @@ function buildShed(THREE, hooks) {
     trim: new THREE.MeshLambertMaterial({ color: 0xf4f4f0 }),
     glass: new THREE.MeshBasicMaterial({ color: 0xbfe3f2, transparent: true, opacity: 0.38, side: THREE.DoubleSide, depthWrite: false })
   };
+  M.glass.userData.glass = true;
   var n = 0;
   function lum() { n++; return M.lumber[(n * 7) % 3]; }
 
@@ -1278,6 +1296,7 @@ function buildMachines(THREE) {
     var g = new THREE.Group();
     B(g, 0xeceeee, -2.5, 2.5, -1.6, 0, -48, 48);
     var lens = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.3, 94), new THREE.MeshBasicMaterial({ color: 0xfffbe8 }));
+    lens.material.userData.lamp = 0xfffbe8;
     lens.position.set(0, -1.75, 0); g.add(lens);
     [-46.5, 46.5].forEach(function (z) { B(g, 0xc9cccc, -2.6, 2.6, -1.8, 0, z - 1.5, z + 1.5); });
     hangParts(g, [-42, 42]);
@@ -1300,6 +1319,7 @@ function buildMachines(THREE) {
     var shade = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 5.5, 7, 24, 1, true), mat(0x2f3437));
     shade.material.side = THREE.DoubleSide; shade.position.y = -3.5; edges(shade); g.add(shade);
     var lamp = new THREE.Mesh(new THREE.CylinderGeometry(4.9, 4.9, 0.2, 24), new THREE.MeshBasicMaterial({ color: 0xfff4d0 }));
+    lamp.material.userData.lamp = 0xfff4d0;
     lamp.position.y = -6.6; g.add(lamp);
     B(g, 0x2f3437, -1.5, 1.5, -0.8, 0, -1.5, 1.5);
     hangParts(g, []);
@@ -1341,6 +1361,13 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
 </script>
 
 <script>
+  (function () {
+    var Phong = THREE.MeshPhongMaterial;
+    THREE.MeshLambertMaterial = function (p) {
+      p = p || {}; if (p.specular === undefined) p.specular = 0x000000; if (p.shininess === undefined) p.shininess = 1;
+      return new Phong(p);
+    };
+  })();
 (function () {
   var stage = document.getElementById('stage');
   var renderer;
@@ -1411,10 +1438,16 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   });
   scene.add(mGroup);
   shed.layers.machines = mGroup;
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x8f7c5c, 0.95));
+  var hemi = new THREE.HemisphereLight(0xffffff, 0x8f7c5c, 0.95);
+  scene.add(hemi);
   var sun = new THREE.DirectionalLight(0xfff2dc, 0.55);
   sun.position.set(220, 420, -160);
-  scene.add(sun);
+  scene.add(sun); scene.add(sun.target);
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  sun.shadow.mapSize.set(2048, 2048);
+  sun.shadow.bias = -0.0006;
+  (function (c) { c.left = -320; c.right = 320; c.top = 320; c.bottom = -320; c.near = 1; c.far = 1400; })(sun.shadow.camera);
   var fill = new THREE.PointLight(0xffe9c8, 0.35, 0, 2);
   fill.position.set(0, 110, 0);
   scene.add(fill);
@@ -1475,6 +1508,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   });
 
   function theme() {
+    if (typeof sceneMode !== 'undefined' && sceneMode !== 'studio') return;
     var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#e6eae7';
     scene.background = new THREE.Color(bg);
   }
@@ -2548,6 +2582,78 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     b.addEventListener('click', function () { var k = b.getAttribute('data-fin'); setFinish(k, !finish[k]); });
   });
   pineGroup.visible = false;
+
+  /* ---- lighting scenes: even studio light, or day / dusk-dawn / night with shadows and working shop lights ---- */
+  var sceneMode = 'studio', lampsOn = true, rig = new THREE.Group(), rigKey = '', shadowTick = 0;
+  scene.add(rig);
+  var SCENES = {
+    studio: { bg: null, hemi: [0xffffff, 0x8f7c5c, 0.95], sun: [0xfff2dc, 0.55, [220, 420, -160]], fill: 0.35, shadow: false, glass: [0xbfe3f2, 0.38] },
+    day:    { bg: 0xa9cbe8, hemi: [0xd7e6ff, 0x8a7a5a, 0.6], sun: [0xfff3df, 0.95, [320, 270, -130]], fill: 0, shadow: true, glass: [0xd8eefa, 0.3] },
+    dusk:   { bg: 0xd99c7a, hemi: [0x8e8fb8, 0x3b3040, 0.22], sun: [0xff9550, 0.8, [-430, 85, 140]], fill: 0, shadow: true, glass: [0xf3b58c, 0.4] },
+    night:  { bg: 0x0b1222, hemi: [0x24345a, 0x0a0a12, 0.05], sun: [0x9fb4ff, 0.05, [-200, 320, 220]], fill: 0, shadow: false, glass: [0x0f1830, 0.65] }
+  };
+  function eachMat(fn) {
+    scene.traverse(function (o) {
+      if (!o.material) return;
+      (Array.isArray(o.material) ? o.material : [o.material]).forEach(function (m) { fn(m, o); });
+    });
+  }
+  function castShadows() {
+    var on = SCENES[sceneMode].shadow;
+    [shed.root, mGroup, pineGroup].forEach(function (root) {
+      root.traverse(function (o) {
+        if (!o.isMesh) return;
+        var solid = !o.material.transparent && !o.material.isMeshBasicMaterial;
+        o.castShadow = on && solid; o.receiveShadow = on && solid;
+      });
+    });
+  }
+  function lampColors() {
+    eachMat(function (m) { if (m.userData.lamp) m.color.setHex(lampsOn ? m.userData.lamp : 0x8d8f8f); });
+  }
+  function applyScene() {
+    var S = SCENES[sceneMode];
+    if (S.bg === null) { var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#e6eae7'; scene.background = new THREE.Color(bg); }
+    else scene.background = new THREE.Color(S.bg);
+    hemi.color.setHex(S.hemi[0]); hemi.groundColor.setHex(S.hemi[1]); hemi.intensity = S.hemi[2];
+    sun.color.setHex(S.sun[0]); sun.intensity = S.sun[1]; sun.position.set(S.sun[2][0], S.sun[2][1], S.sun[2][2]);
+    sun.castShadow = S.shadow;
+    fill.intensity = S.fill;
+    eachMat(function (m) { if (m.userData.glass) { m.color.setHex(S.glass[0]); m.opacity = S.glass[1]; } });
+    castShadows(); lampColors(); rigKey = null;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-scene]'), function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-scene') === sceneMode ? 'true' : 'false'); });
+    var lb = document.getElementById('lamps'); if (lb) { lb.setAttribute('aria-pressed', lampsOn ? 'true' : 'false'); lb.textContent = lampsOn ? 'Shop lights: on' : 'Shop lights: off'; }
+    try { localStorage.setItem('shed-light-v1', JSON.stringify({ mode: sceneMode, lamps: lampsOn })); } catch (e) {}
+  }
+  // light sources at each fixture: two points along a strip light, a downward spot under a focus light
+  function updateRig() {
+    var emit = sceneMode !== 'studio' && lampsOn;
+    var fx = emit ? items.filter(function (g) { return g.userData.dev === 'light' || g.userData.dev === 'spot'; }) : [];
+    var key = fx.map(function (g) { return g.userData.dev; }).join(',');
+    if (key !== rigKey) {
+      while (rig.children.length) rig.remove(rig.children[0]);
+      fx.forEach(function (g) {
+        if (g.userData.dev === 'light') {
+          [-26, 26].forEach(function () { rig.add(new THREE.PointLight(0xfff1dc, 0.2, 320, 2)); });
+        } else {
+          var sp = new THREE.SpotLight(0xffe6bd, 0.7, 220, 0.62, 0.55, 2);
+          rig.add(sp); rig.add(sp.target);
+        }
+      });
+      rigKey = key;
+    }
+    var i = 0;
+    fx.forEach(function (g) {
+      var p = g.position;
+      if (g.userData.dev === 'light') { [-26, 26].forEach(function (dz) { rig.children[i++].position.set(p.x, p.y - 3, p.z + dz); }); }
+      else { rig.children[i].position.set(p.x, p.y - 7, p.z); rig.children[i + 1].position.set(p.x, 0, p.z); i += 2; }
+    });
+  }
+  function setScene(m) { sceneMode = m; applyScene(); }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-scene]'), function (b) {
+    b.addEventListener('click', function () { setScene(b.getAttribute('data-scene')); });
+  });
+  document.getElementById('lamps').addEventListener('click', function () { lampsOn = !lampsOn; applyScene(); });
   Array.prototype.forEach.call(document.querySelectorAll('[data-vis]'), function (b) {
     b.addEventListener('click', function () { var k = b.getAttribute('data-vis'); setVis(k, !vis[k]); });
   });
@@ -2945,7 +3051,8 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }
   function captureViews() {
     var out = [], bg = scene.background, pr = renderer.getPixelRatio(), sel = selBox.visible, rf = shed.layers.roofFrame.visible, rg = ringG.visible;
-    scene.background = new THREE.Color(0xffffff); selBox.visible = false; ringG.visible = false; renderer.setPixelRatio(1);
+    if (sceneMode === 'studio') scene.background = new THREE.Color(0xffffff);
+    selBox.visible = false; ringG.visible = false; renderer.setPixelRatio(1);
     try {
       printViews().forEach(function (v) {
         var w = 1800, h = Math.round(w / v.v.aspect);
@@ -3153,7 +3260,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   });
   renderLibrary();
   document.addEventListener('click', function (e) {
-    ['more', 'lib'].forEach(function (id) { var d = document.getElementById(id); if (d.open && !d.contains(e.target)) d.open = false; });
+    ['more', 'lib', 'lighting'].forEach(function (id) { var d = document.getElementById(id); if (d.open && !d.contains(e.target)) d.open = false; });
   });
   document.getElementById('sel-close').addEventListener('click', function () { select(null); });
   document.getElementById('sel-rot').addEventListener('click', rotateSel);
@@ -3345,8 +3452,13 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
 
   (function () { var f = null; try { f = JSON.parse(localStorage.getItem('shed-finish-v1') || 'null'); } catch (e) {}
     if (f) { setFinish('rock', !!f.rock); setFinish('pine', !!f.pine); } })();
+  (function () { var L = null; try { L = JSON.parse(localStorage.getItem('shed-light-v1') || 'null'); } catch (e) {}
+    if (L && SCENES[L.mode]) { sceneMode = L.mode; lampsOn = L.lamps !== false; } applyScene(); })();
   (function loop() {
     if (finish.pine && pineDirty) buildPine();
+    updateRig();
+    if (SCENES[sceneMode].shadow && ++shadowTick % 30 === 0) castShadows();     // pick up pieces added or rebuilt since
+    if (shadowTick % 30 === 0) lampColors();
     updateRing();
     controls.update();
     renderer.render(scene, camera);

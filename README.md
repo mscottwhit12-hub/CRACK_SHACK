@@ -86,4 +86,5 @@ Then start it with `docker compose up -d crack-shack` and open `http://<server>:
 - Library (top bar) adds any piece: machines, TVs and wall pieces, outlets, switches, floor boxes, the panel, strip lights and focus lights. To remove a piece, select it and press Delete.
 - Sheetrock (sloped ceiling plus the flat ceiling at the collar ties) and Pine walls (horizontal 1×6 boards, staggered 8′ joints, cut around windows, doors, outlets and switches) are display toggles on the top bar.
 - Floor items, Electrical, Lights and Wall items on the top bar show or hide those layers.
+- Lighting (second row) switches between even light, daytime, dusk/dawn and night, and turns the shop lights on or off. The day, dusk and night scenes use sun or moon through the windows, with shadows, plus real light from the strip and focus lights.
 - Print (or Ctrl+P) exports a 9-page PDF of whatever is showing: floor plan, two 3D views, two inside views and all four walls. Electrical (outlets, switches, floor boxes, panel) is hidden by default and turns on with Wiring.
