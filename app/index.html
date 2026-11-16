@@ -260,6 +260,7 @@
   </div>
   <div class="grp" role="group" aria-label="Finishes">
     <button type="button" data-fin="rock" aria-pressed="false" title="Sheetrock on the sloped ceiling and across the collar ties">Sheetrock</button>
+    <button type="button" data-fin="yard" aria-pressed="true" title="The yard around the shed: lawn, driveway, house and trees">Yard</button>
     <button type="button" data-fin="pine" aria-pressed="false" title="Horizontal 1×6 pine boards on the walls, cut around windows, doors, outlets and switches">Pine walls</button>
   </div>
   <div class="grp"><button type="button" id="wiring" aria-pressed="false" title="Show circuits and the panel schedule">Wiring</button></div>
@@ -332,7 +333,7 @@
   <div class="wd-head"><h2>Wiring plan</h2><button type="button" id="wd-save">Save…</button><button type="button" class="x" id="wd-close" aria-label="Close wiring plan">×</button></div>
   <div id="wd-body"></div>
 </aside>
-<div class="hint">Click a piece to select it, then drag it to move · drag anywhere else to orbit · <kbd>R</kbd> or the ring to rotate · <kbd>Del</kbd> delete · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</div>
+<div class="hint">Click a piece to select it, then drag it to move · drag anywhere else to orbit · arrows or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> nudge · <kbd>Q</kbd>/<kbd>E</kbd> turn 15° · <kbd>R</kbd> 90° · <kbd>Del</kbd> delete · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</div>
 <div class="toast" id="toast" role="status" hidden></div>
 <dialog id="dlg" aria-labelledby="dlg-title"><div id="dlg-body"></div></dialog>
 
@@ -1456,6 +1457,180 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   });
   scene.add(mGroup);
   shed.layers.machines = mGroup;
+  var SZb = shed.size;
+
+  /* ================= the yard =================
+     Built from the owner's aerial screenshot: the yellow bars there are 20 ft = 78 px, so 1 px ≈ 3.08″.
+     Everything is placed in screenshot pixels (u right/east, v down/south) and turned so the shed lands on itself:
+     double doors face southwest, the entry wall faces the yard and driveway (the screenshot's red marks). */
+  var yard = (function () {
+    var S = 240 / 78, GROUND = -10;
+    var C = [368, 389];                                         // shed center in the screenshot
+    var dl = Math.hypot(99, -95.5), D = [99 / dl, -95.5 / dl];  // shed long axis, toward the back wall (northeast)
+    var N1 = [-D[1], D[0]];                                     // toward the entry wall side (southeast)
+    var root = new THREE.Group(), tall = new THREE.Group(), flat = new THREE.Group();
+    var inner = new THREE.Group();
+    root.add(inner); inner.add(flat); inner.add(tall);
+    root.rotation.y = Math.atan2(-N1[1], -N1[0]);
+    inner.position.set(-C[0] * S, GROUND, -C[1] * S);
+    var seed = 7; function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+    function P(u, v, y) { return new THREE.Vector3(u * S, y || 0, v * S); }
+    function inPoly(pt, poly) {
+      var c = false;
+      for (var i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        var a = poly[i], b = poly[j];
+        if ((a[1] > pt[1]) !== (b[1] > pt[1]) && pt[0] < (b[0] - a[0]) * (pt[1] - a[1]) / (b[1] - a[1]) + a[0]) c = !c;
+      }
+      return c;
+    }
+    var U0 = -260, U1 = 1620, V0 = -260, V1 = 960;              // modeled area, in screenshot pixels
+    var DRIVE = [[-120, 800], [60, 722], [150, 672], [260, 610], [350, 555], [430, 495], [480, 445], [520, 400], [560, 350], [600, 300],
+                 [640, 255], [690, 205], [750, 155], [820, 115], [900, 85], [980, 65], [1060, 52], [1140, 50], [1210, 58], [1270, 76], [1320, 102], [1360, 130]];
+    var APRON = [[1150, 38], [1360, 18], [1365, 205], [1312, 192], [1282, 142], [1232, 96], [1150, 76]];
+    var WALK = [[1086, 92], [1092, 180], [1074, 262], [1052, 335]];
+    var ROUGH = [[560, 130], [700, 60], [860, 40], [760, 150], [640, 240], [520, 350], [440, 430], [330, 520], [200, 620], [120, 720], [-260, 760], [-260, 640], [0, 590], [160, 470], [260, 380], [330, 300], [440, 260], [500, 200]];
+    var FOREST = [
+      [[-260, -260], [1100, -260], [1100, 0], [1000, 12], [880, 32], [790, 22], [700, 55], [600, 100], [530, 170], [470, 238], [400, 290], [320, 302], [250, 372], [170, 452], [90, 532], [0, 582], [-260, 642]],
+      [[380, 960], [430, 700], [470, 642], [560, 602], [660, 612], [760, 600], [840, 540], [900, 502], [980, 512], [1060, 552], [1150, 542], [1250, 522], [1349, 472], [1620, 450], [1620, 960]],
+      [[1335, 250], [1620, 200], [1620, 450], [1349, 470]]
+    ];
+    function nearDrive(u, v, pad) {
+      for (var i = 1; i < DRIVE.length; i++) {
+        var a = DRIVE[i - 1], b = DRIVE[i], dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((u - a[0]) * dx + (v - a[1]) * dy) / (dx * dx + dy * dy)));
+        if (Math.hypot(u - a[0] - t * dx, v - a[1] - t * dy) < pad) return true;
+      }
+      return false;
+    }
+
+    /* ---- ground: painted lawn, rough grass, forest floor, asphalt drive, stone walk ---- */
+    var CW = 2048, k = CW / (U1 - U0), CH = Math.round((V1 - V0) * k);
+    var cv = document.createElement('canvas'); cv.width = CW; cv.height = CH;
+    var g = cv.getContext('2d');
+    g.setTransform(k, 0, 0, k, -U0 * k, -V0 * k);
+    function poly(pts, fill) { g.beginPath(); pts.forEach(function (p, i) { if (i) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); }); g.closePath(); g.fillStyle = fill; g.fill(); }
+    function line(pts, w, col) { g.beginPath(); pts.forEach(function (p, i) { if (i) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); }); g.lineWidth = w; g.strokeStyle = col; g.lineCap = 'round'; g.lineJoin = 'round'; g.stroke(); }
+    g.fillStyle = '#5f7c37'; g.fillRect(U0, V0, U1 - U0, V1 - V0);
+    g.save(); g.globalAlpha = 0.03;                                                        // mowing stripes
+    for (var st = -800, si = 0; st < 2400; st += 36, si++) { g.fillStyle = si % 2 ? '#ffffff' : '#000000'; g.beginPath(); g.moveTo(st, V0); g.lineTo(st + 18, V0); g.lineTo(st + 18 - 700, V1); g.lineTo(st - 700, V1); g.fill(); }
+    g.restore();
+    poly(ROUGH, '#7f8350');
+    FOREST.forEach(function (f) { poly(f, '#3c4728'); });
+    for (var n = 0; n < 9000; n++) {                                                        // grass texture
+      var nu = U0 + rnd() * (U1 - U0), nv = V0 + rnd() * (V1 - V0);
+      g.fillStyle = rnd() < 0.5 ? 'rgba(40,60,20,0.18)' : 'rgba(190,190,120,0.14)';
+      g.fillRect(nu, nv, 1.6 + rnd() * 2.5, 1.6 + rnd() * 2.5);
+    }
+    line(DRIVE, 34, '#3b3c3f'); line(DRIVE, 30, '#4a4b4f');
+    poly(APRON, '#4a4b4f');
+    line(WALK, 9, '#bba985');
+    var tex = new THREE.CanvasTexture(cv); tex.anisotropy = 4;
+    var ground = new THREE.Mesh(new THREE.PlaneGeometry((U1 - U0) * S, (V1 - V0) * S), new THREE.MeshLambertMaterial({ map: tex }));
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.set((U0 + U1) / 2 * S, -0.5, (V0 + V1) / 2 * S);
+    flat.add(ground);
+
+    /* ---- trees: the tree lines as instanced conifers and broadleaf trees ---- */
+    var conifers = [], broad = [];
+    FOREST.forEach(function (f) {
+      for (var u = U0; u < U1; u += 46) for (var v = V0; v < V1; v += 46) {
+        var pu = u + (rnd() - 0.5) * 40, pv = v + (rnd() - 0.5) * 40;
+        if (!inPoly([pu, pv], f) || nearDrive(pu, pv, 22)) continue;
+        (rnd() < 0.68 ? conifers : broad).push([pu, pv, 0.75 + rnd() * 0.5, rnd() * Math.PI * 2]);
+      }
+    });
+    var mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
+    function instanced(geo, color, list, size) {
+      var m = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color: color }), list.length);
+      list.forEach(function (t, i) {
+        var s3 = size(t); q.setFromAxisAngle(up, t[3]); sc.set(s3[0], s3[1], s3[0]);
+        mtx.compose(P(t[0], t[1]), q, sc); m.setMatrixAt(i, mtx);
+      });
+      tall.add(m); return m;
+    }
+    function unit(geo, y) { geo.translate(0, y, 0); return geo; }
+    // conifers 55–80 ft (white pine / spruce shape): trunk and three stacked cones, built at 1 unit tall
+    var CH0 = 800;
+    instanced(unit(new THREE.CylinderGeometry(0.012, 0.018, 0.5, 6), 0.25), 0x5a4632, conifers, function (t) { return [CH0 * t[2], CH0 * t[2]]; });
+    instanced(unit(new THREE.ConeGeometry(0.2, 0.45, 8), 0.4), 0x2c4529, conifers, function (t) { return [CH0 * t[2], CH0 * t[2]]; });
+    instanced(unit(new THREE.ConeGeometry(0.15, 0.38, 8), 0.65), 0x2f4b2b, conifers, function (t) { return [CH0 * t[2], CH0 * t[2]]; });
+    instanced(unit(new THREE.ConeGeometry(0.09, 0.28, 8), 0.86), 0x33512e, conifers, function (t) { return [CH0 * t[2], CH0 * t[2]]; });
+    // broadleaf 45–60 ft: trunk and a rounded crown
+    var BH = 620;
+    instanced(unit(new THREE.CylinderGeometry(0.02, 0.03, 0.55, 6), 0.275), 0x5d4a36, broad, function (t) { return [BH * t[2], BH * t[2]]; });
+    instanced(unit(new THREE.IcosahedronGeometry(0.3, 1), 0.68), 0x47672f, broad, function (t) { return [BH * t[2], BH * t[2] * 0.9]; });
+
+    /* ---- the young trees you planted: cyan saplings ~10 ft, pink young trees 12–16 ft, sparse small leaves ---- */
+    var leaf = new THREE.MeshLambertMaterial({ color: 0x6f9a3c }), bark = new THREE.MeshLambertMaterial({ color: 0x6b5641 });
+    function young(u, v, H, trunkR, blobs, blobR) {
+      var t = new THREE.Group();
+      var tr = new THREE.Mesh(new THREE.CylinderGeometry(trunkR * 0.5, trunkR, H * 0.85, 7), bark); tr.position.y = H * 0.425; t.add(tr);
+      for (var i = 0; i < blobs; i++) {
+        var a = rnd() * Math.PI * 2, h = H * (0.45 + rnd() * 0.5), rr = (H - h) * 0.35 + blobR * 0.6 + rnd() * blobR;
+        var b = new THREE.Mesh(new THREE.IcosahedronGeometry(blobR * (0.6 + rnd() * 0.6), 0), leaf);
+        b.position.set(Math.cos(a) * rr * 0.55, h, Math.sin(a) * rr * 0.55); b.rotation.set(rnd() * 3, rnd() * 3, 0);
+        t.add(b);
+      }
+      t.position.copy(P(u, v)); tall.add(t);
+    }
+    [[664, 147], [546, 279], [443, 415], [225, 570]].forEach(function (p) { young(p[0], p[1], 120, 1, 9, 8); });
+    [[913, 119, 192], [746, 217, 156], [627, 341, 168], [505, 483, 144], [288, 661, 180]].forEach(function (p) { young(p[0], p[1], p[2], 1.8, 13, 15); });
+    // shrubs along the front of the house
+    [[1030, 100], [1036, 212], [1058, 318], [1092, 470]].forEach(function (p) {
+      var b = new THREE.Mesh(new THREE.IcosahedronGeometry(30, 1), new THREE.MeshLambertMaterial({ color: 0x3e5e2c }));
+      b.scale.set(1, 0.7, 1); b.position.copy(P(p[0], p[1], 18)); tall.add(b);
+    });
+
+    /* ---- the house: two hip-roofed blocks (sizes from the roof outline; height assumed two stories) ---- */
+    var siding = new THREE.MeshLambertMaterial({ color: 0xcfc9bc }), roofM = new THREE.MeshLambertMaterial({ color: 0x6e5646, side: THREE.DoubleSide });
+    function hipRoof(w, d, rise, over) {
+      var W2 = w / 2 + over, D2 = d / 2 + over, swap = W2 > D2;
+      if (swap) { var tmp = W2; W2 = D2; D2 = tmp; }
+      var h = rise, r = D2 - W2;
+      var v = [[-W2, 0, -D2], [W2, 0, -D2], [W2, 0, D2], [-W2, 0, D2], [0, h, -r], [0, h, r]];
+      if (swap) v = v.map(function (p) { return [p[2], p[1], p[0]]; });
+      var idx = [0, 1, 4, 1, 2, 5, 1, 5, 4, 2, 3, 5, 3, 0, 4, 3, 4, 5];
+      var pos = []; idx.forEach(function (i) { pos.push(v[i][0], v[i][1], v[i][2]); });
+      var geo = new THREE.BufferGeometry(); geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3)); geo.computeVertexNormals();
+      return new THREE.Mesh(geo, roofM);
+    }
+    function block(u, v, wpx, dpx, wallH, rot) {
+      var b = new THREE.Group(), w = wpx * S, d = dpx * S;
+      var body = new THREE.Mesh(new THREE.BoxGeometry(w, wallH, d), siding); body.position.y = wallH / 2; b.add(body);
+      var roof = hipRoof(w, d, Math.min(w, d) / 2 * 7 / 12, 16); roof.position.y = wallH; b.add(roof);
+      b.position.copy(P(u, v)); b.rotation.y = rot; tall.add(b);
+      return b;
+    }
+    var hr = -10 * Math.PI / 180;
+    var wingA = block(1214, 238, 118, 182, 216, hr);
+    block(1180, 412, 205, 182, 216, hr);
+    // garage doors on the north wing, facing the paved apron
+    [-1, 1].forEach(function (sgn) {
+      var gd = new THREE.Mesh(new THREE.BoxGeometry(108, 90, 2), new THREE.MeshLambertMaterial({ color: 0xe9e6de }));
+      gd.position.set(sgn * 70, 45, -182 * S / 2 - 1); wingA.add(gd);
+    });
+    // deck on the back of the house
+    var deck = new THREE.Mesh(new THREE.BoxGeometry(80 * S, 30, 170 * S), new THREE.MeshLambertMaterial({ color: 0x8a6a4a }));
+    deck.position.copy(P(1296, 392, 15)); deck.rotation.y = hr; tall.add(deck);
+    // the car on the apron
+    var car = new THREE.Group(), paint = new THREE.MeshLambertMaterial({ color: 0x2b2f36 });
+    var body = new THREE.Mesh(new THREE.BoxGeometry(72, 26, 190), paint); body.position.y = 22; car.add(body);
+    var cab = new THREE.Mesh(new THREE.BoxGeometry(64, 20, 96), new THREE.MeshLambertMaterial({ color: 0x1d2128 })); cab.position.set(0, 45, -6); car.add(cab);
+    car.position.copy(P(1318, 122)); car.rotation.y = -0.9; tall.add(car);
+
+    return { root: root, tall: tall, ground: ground };
+  })();
+  scene.add(yard.root);
+  yard.pad = new THREE.Group(); scene.add(yard.pad);
+  // gravel pad and skids under the shed
+  (function () {
+    var gp = new THREE.Mesh(new THREE.BoxGeometry(SZb.W + 55, 4, SZb.L + 55), new THREE.MeshLambertMaterial({ color: 0x9b958b }));
+    gp.position.y = -10 + 2 - 0.4; yard.pad.add(gp);
+    [-SZb.W / 2 + 12, 0, SZb.W / 2 - 12].forEach(function (x) {
+      var sk = new THREE.Mesh(new THREE.BoxGeometry(3.5, 5.5, SZb.L + 6), new THREE.MeshLambertMaterial({ color: 0x7a6a50 }));
+      sk.position.set(x, -10 + 4 + 2.75 - 0.4, 0); yard.pad.add(sk);
+    });
+  })();
+
   var hemi = new THREE.HemisphereLight(0xffffff, 0x8f7c5c, 0.95);
   scene.add(hemi);
   var sun = new THREE.DirectionalLight(0xfff2dc, 0.55);
@@ -1470,13 +1645,13 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   fill.position.set(0, 110, 0);
   scene.add(fill);
 
-  var camera = new THREE.PerspectiveCamera(55, 1, 2, 6000);
+  var camera = new THREE.PerspectiveCamera(55, 1, 2, 40000);
   var controls = new THREE.OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.dampingFactor = 0.12;
   controls.maxPolarAngle = Math.PI * 0.85;
   controls.minDistance = 10;
-  controls.maxDistance = 1400;
+  controls.maxDistance = 6000;
 
   // Layer toggles. "labels" is virtual: name tags over machines (the selected one always shows).
   var showLabels = false;
@@ -1503,6 +1678,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     (v.hide || []).forEach(function (l) { setLayer(l, false); });
     (v.show || []).forEach(function (l) { setLayer(l, true); });
     if (name === 'plan') fitPlan();
+    yard.tall.visible = name !== 'plan';
     controls.update();
     var key = name === 'front' || name === 'back' ? 'inside' : name;
     Array.prototype.forEach.call(document.querySelectorAll('[data-view]'), function (b) {
@@ -2384,6 +2560,58 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     updatePanel();
   }
   // floor pieces turn about their footprint center and take the nearest free spot
+  // nearest valid spot to st (no grid snapping), so a piece against a wall turns and shifts out instead of refusing
+  function pushFree(g, st, o, reach) {
+    if (!blocked(g, st, o)) return st;
+    for (var d = 1; d <= reach; d++) {
+      var best = null, bd = 1e9;
+      for (var i = -d; i <= d; i++) for (var j = -d; j <= d; j++) {
+        if (Math.max(Math.abs(i), Math.abs(j)) !== d) continue;
+        var c = { x: st.x + i, y: 0, z: st.z + j, r: st.r }, dist = i * i + j * j;
+        if (dist < bd && !blocked(g, c, o)) { best = c; bd = dist; }
+      }
+      if (best) return best;
+    }
+    return null;
+  }
+  // turn the selected floor piece by `steps` × 15° (positive = clockwise seen from above)
+  function turnSel(steps) {
+    var g = selected;
+    if (!ringFor(g)) return;
+    var before = snap(), B = boxOf(g), nr = (((g.userData.r - steps / 6) % 4) + 4) % 4;
+    var spot = pushFree(g, turnedAt(g, nr, (B.x0 + B.x1) / 2, (B.z0 + B.z1) / 2), obstacles(g), 60);
+    if (!spot) { toast('Not enough room to turn it here. Move it somewhere more open first.', true); return; }
+    apply(g, spot); updatePanel(); commit(before);
+    if (wiringOn) buildWiring();
+  }
+  /* ---- keyboard nudging: arrows or WASD move the selected piece 1″ (Shift: 12″), relative to the view ---- */
+  var nudge = null;
+  function nudgeSel(dx, dy, big) {
+    var g = selected; if (!g || !g.visible) return;
+    var step = big ? 12 : 1, o = obstacles(g), st = stateOf(g), t = null;
+    var dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+    var fwd = Math.abs(dir.x) > Math.abs(dir.z) ? [Math.sign(dir.x), 0] : [0, Math.sign(dir.z) || -1];   // screen-up on the floor, snapped to an axis
+    var rt = Math.abs(dir.z) >= Math.abs(dir.x) ? [-Math.sign(dir.z) || 1, 0] : [0, Math.sign(dir.x)];      // screen-right
+    function tryAt(n) {
+      var c;
+      if (isWall(g)) {
+        var W = WALLS[st.w], along = (W.ax === 'x' ? rt[0] : rt[1]) || (W.ax === 'x' ? fwd[0] : fwd[1]) || 1;
+        if (g.userData.outlet) c = snapWall(g, st.w, st.a + dx * along * 16 * n, st.y + dy * step * n);     // outlets hop stud to stud
+        else c = wallState(st.w, st.a + dx * along * step * n, st.y + dy * step * n);
+      } else {
+        var mx = (rt[0] * dx + fwd[0] * dy) * step * n, mz = (rt[1] * dx + fwd[1] * dy) * step * n;
+        c = isRoof(g) ? { x: st.x + mx, z: st.z + mz } : { x: st.x + mx, y: 0, z: st.z + mz, r: st.r };
+      }
+      return c;
+    }
+    // one step if it's free; otherwise hop past whatever is in the way to the next free spot in that direction
+    for (var n = 1; n <= (big ? 30 : 360) && !t; n++) { var c = tryAt(n); if (!blocked(g, c, o)) t = c; }
+    if (!t) return;
+    if (!nudge || nudge.g !== g) nudge = { g: g, before: snap(), timer: 0 };
+    apply(g, isRoof(g) ? roofState(g, t.x, t.z) : t); updatePanel();
+    clearTimeout(nudge.timer);
+    nudge.timer = setTimeout(function () { var b = nudge.before; nudge = null; commit(b); if (wiringOn) buildWiring(); }, 450);   // one undo step per burst
+  }
   function rotateSel() {
     var g = selected;
     if (!g || isWall(g)) return;
@@ -2507,7 +2735,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   function setVis(k, on) { vis[k] = on; refreshVis(); shadowsNeed = true; }
 
   /* ---- interior finishes: ceiling sheetrock and pine wall boards (display only) ---- */
-  var finish = { rock: false, pine: false }, pineGroup = new THREE.Group(), pineDirty = true;
+  var finish = { rock: false, pine: false, yard: true }, pineGroup = new THREE.Group(), pineDirty = true;
   scene.add(pineGroup);
   var BOARD = 5.5, BLEN = 96, GAP = 0.1, PT = 0.75;                   // 1x6 face, 8' boards, butt/row gap, thickness
   var STAG = [0, 48, 24, 72, 36, 84, 12, 60];                            // joint offsets, row by row
@@ -2598,6 +2826,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     finish[k] = on;
     if (k === 'rock') shed.layers.ceiling.visible = on;
     if (k === 'pine') { pineGroup.visible = on; if (on && pineDirty) buildPine(); }
+    if (k === 'yard') { yard.root.visible = on; yard.pad.visible = on; }
     var b = document.querySelector('[data-fin="' + k + '"]'); if (b) b.setAttribute('aria-pressed', on ? 'true' : 'false');
     try { localStorage.setItem('shed-finish-v1', JSON.stringify(finish)); } catch (e) {}
   }
@@ -2617,9 +2846,9 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   var SCENES = {
     studio: { bg: null, hemi: [0xffffff, 0x8f7c5c, 0.95], sun: [0xfff2dc, 0.55, [220, 420, -160]], fill: 0.35, shadow: false, glass: [0xbfe3f2, 0.38] },
     // lux: sun = direct sun, skyIn = daylight inside through the windows, skyOut = sky light outside
-    day:   { bg: 0xa9cbe8, hemi: [0xd7e6ff, 0x8a7a5a], sun: [0xfff3df, 0, [320, 270, -130]], shadow: true, glass: [0xd8eefa, 0.3], lux: { sun: 60000, skyIn: 450, skyOut: 12000 } },
-    dusk:  { bg: 0xd99c7a, hemi: [0x8e8fb8, 0x3b3040], sun: [0xff9550, 0, [-430, 85, 140]], shadow: true, glass: [0xf3b58c, 0.4], lux: { sun: 700, skyIn: 18, skyOut: 350 } },
-    night: { bg: 0x0b1222, hemi: [0x24345a, 0x0a0a12], sun: [0x9fb4ff, 0, [-200, 320, 220]], shadow: false, glass: [0x0f1830, 0.65], lux: { sun: 0.15, skyIn: 0.03, skyOut: 0.25 } }
+    day:   { bg: 0xa9cbe8, hemi: [0xd7e6ff, 0x8a7a5a], sun: [0xfff3df, 0, [-60, 345, -290]], shadow: true, glass: [0xd8eefa, 0.3], lux: { sun: 60000, skyIn: 450, skyOut: 12000 } },
+    dusk:  { bg: 0xd99c7a, hemi: [0x8e8fb8, 0x3b3040], sun: [0xff9550, 0, [309, 63, -321]], shadow: true, glass: [0xf3b58c, 0.4], lux: { sun: 700, skyIn: 18, skyOut: 350 } },
+    night: { bg: 0x0b1222, hemi: [0x24345a, 0x0a0a12], sun: [0x9fb4ff, 0, [-300, 330, 5]], shadow: false, glass: [0x0f1830, 0.65], lux: { sun: 0.15, skyIn: 0.03, skyOut: 0.25 } }
   };
 
   /* ---- fixture specs (saved with the layout, so every device sees the same lights) ---- */
@@ -2717,7 +2946,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }
   function castShadows() {
     var on = sceneMode !== 'studio', changed = false;
-    [shed.root, mGroup, pineGroup].forEach(function (root) {
+    [shed.root, mGroup, pineGroup, yard.root, yard.pad].forEach(function (root) {
       root.traverse(function (o) {
         if (!o.isMesh) return;
         var solid = on && !o.material.transparent && !o.material.isMeshBasicMaterial;
@@ -2837,9 +3066,10 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (sceneMode === 'studio') return;
     var S = SCENES[sceneMode], b = bounceLux();
     var direct = fixtureLumens() * 0.5 / A_FLOOR;                      // average on the floor from the fixtures
-    var eIn = direct + b.lux + S.lux.skyIn, eOut = S.lux.skyOut + S.lux.sun * 0.25;
+    var eIn = direct + b.lux + S.lux.skyIn, eOut = S.lux.skyOut + S.lux.sun;
     var inside = insideShed();
-    var E = inside ? eIn : Math.max(eIn, Math.pow(eIn, 0.7) * Math.pow(eOut, 0.3));   // looking in from outside: whichever is brighter
+    // outside, your eyes are on the yard: adapt to the open sky and sun, or to the lit shop if that's brighter (night)
+    var E = inside ? eIn : Math.max(direct + b.lux, eOut);
     E = Math.max(8, Math.min(60000, E));
     var eff = Math.pow(E, 0.85) * Math.pow(300, 0.15);
     var target = 5 / eff;
@@ -3469,11 +3699,15 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   window.addEventListener('keydown', function (e) {
     if (e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
     var mod = e.ctrlKey || e.metaKey, k = (e.key || '').toLowerCase();
+    if (mod && nudge) { clearTimeout(nudge.timer); var nb = nudge.before; nudge = null; commit(nb); }   // finish a nudge burst before undo/redo
     if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); if (!drag) undo(); return; }
     if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); if (!drag) redo(); return; }
     if (mod && k === 'p') { e.preventDefault(); if (!drag) exportPDF(); return; }
     if (mod) return;
     if (k === 'r' && selected && !drag) { rotateSel(); e.preventDefault(); }
+    if ((k === 'e' || k === 'q') && selected && !drag) { turnSel(k === 'e' ? 1 : -1); e.preventDefault(); }
+    var mv = { arrowup: [0, 1], w: [0, 1], arrowdown: [0, -1], s: [0, -1], arrowleft: [-1, 0], a: [-1, 0], arrowright: [1, 0], d: [1, 0] }[k];
+    if (mv && selected && !drag) { nudgeSel(mv[0], mv[1], e.shiftKey); e.preventDefault(); }
     if ((e.key === 'Delete' || e.key === 'Backspace') && selected && !drag) { deleteSel(); e.preventDefault(); }
     if (e.key === 'Escape') { select(null); document.getElementById('more').open = false; document.getElementById('lib').open = false; }
   });
@@ -3576,9 +3810,9 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       var deg = Math.round(Math.atan2(dx, dz) * 180 / Math.PI / 15) * 15;
       var nr = Math.round((((deg % 360) + 360) % 360) / 90 * 6) / 6;
       if (Math.abs(nr - g.userData.r) > 1e-6) {
-        var ts = turnedAt(g, nr, drag.cx, drag.cz);
-        if (!blocked(g, ts, drag.o)) apply(g, ts);
-        else if (!drag.warned) { drag.warned = true; toast('Something is in the way at that angle.', true); }
+        var ts = pushFree(g, turnedAt(g, nr, drag.cx, drag.cz), drag.o, 48);     // shifts off a wall or neighbor if it has to
+        if (ts) apply(g, ts);
+        else if (!drag.warned) { drag.warned = true; toast('Not enough room to turn it that far here.', true); }
       }
       updatePanel();
       return;
@@ -3652,7 +3886,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   updateLabels();
 
   (function () { var f = null; try { f = JSON.parse(localStorage.getItem('shed-finish-v1') || 'null'); } catch (e) {}
-    if (f) { setFinish('rock', !!f.rock); setFinish('pine', !!f.pine); } })();
+    if (f) { setFinish('rock', !!f.rock); setFinish('pine', !!f.pine); setFinish('yard', f.yard !== false); } })();
   (function () { var L = null; try { L = JSON.parse(localStorage.getItem('shed-light-v1') || 'null'); } catch (e) {}
     if (L && SCENES[L.mode]) { sceneMode = L.mode; lampsOn = L.lamps !== false; } applyScene(); })();
   (function loop() {
