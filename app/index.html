@@ -251,6 +251,10 @@
     <button type="button" data-vis="lights" aria-pressed="true" title="Strip lights and focus lights">Lights</button>
     <button type="button" data-vis="wall" aria-pressed="true" title="TVs, boards, racks and other wall pieces">Wall items</button>
   </div>
+  <div class="grp" role="group" aria-label="Finishes">
+    <button type="button" data-fin="rock" aria-pressed="false" title="Sheetrock on the sloped ceiling and across the collar ties">Sheetrock</button>
+    <button type="button" data-fin="pine" aria-pressed="false" title="Horizontal 1×6 pine boards on the walls, cut around windows, doors, outlets and switches">Pine walls</button>
+  </div>
   <div class="grp"><button type="button" id="wiring" aria-pressed="false" title="Show circuits and the panel schedule">Wiring</button></div>
   <div class="grp" role="group" aria-label="Edit">
     <button type="button" class="icon" id="undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
@@ -285,6 +289,8 @@
           <dt>Floor</dt><dd>15′ 5″ × 27′ 4″</dd>
           <dt>Studs</dt><dd>7′ 0″ at 16″ o.c.</dd>
           <dt>Double door</dt><dd>6′ centered</dd>
+          <dt>Collar ties</dt><dd>11′ 0″ up</dd>
+          <dt>Dormer</dt><dd>14′ long</dd>
         </dl>
         <h2 class="est">Estimated from photos</h2>
         <dl>
@@ -320,9 +326,12 @@ function buildShed(THREE, hooks) {
   var PITCH = 10 / 12;                  // estimated
   var RIDGE = WALL_H + HALF * PITCH;    // 168.5, underside of rafters at the peak
   var SK = 3.5 * Math.sqrt(1 + PITCH * PITCH); // vertical offset to top of rafters
-  var ZD0 = -132, ZD1 = 76;             // dormer extent along the entry wall (estimated)
+  var ZD0 = -112, ZD1 = 56;             // dormer: 14' long (measured), position estimated
   var DORMER_TOP = WALL_H + 26;         // 114.5 (estimated)
-  var COLLAR = 141, KX = 58, CX = 26;   // truss inner profile (estimated)
+  var DPITCH = (RIDGE - DORMER_TOP) / HALF;
+  var COLLAR = 132;                     // bottom of the 2x4 collar ties: 11' off the floor (measured)
+  // where the underside of a rafter is at height y, on each side (dormer = the entry-wall side inside the dormer)
+  function slopeX(y, dormer) { return dormer ? HALF - (y - DORMER_TOP) / DPITCH : HALF - (y - WALL_H) / PITCH; }
 
   var lumberCols = [0xdcb682, 0xd3aa72, 0xe2c08f];
   var M = {
@@ -347,7 +356,7 @@ function buildShed(THREE, hooks) {
   var layers = {
     wallFrame: new THREE.Group(), wallSkin: new THREE.Group(),
     roofFrame: new THREE.Group(), roofSkin: new THREE.Group(),
-    grid: new THREE.Group(), dims: new THREE.Group(), fixtures: new THREE.Group()
+    grid: new THREE.Group(), dims: new THREE.Group(), fixtures: new THREE.Group(), ceiling: new THREE.Group()
   };
   Object.keys(layers).forEach(function (k) { root.add(layers[k]); });
 
@@ -480,7 +489,7 @@ function buildShed(THREE, hooks) {
   /* ---------- dormer wall, built in the entry wall's local frame ---------- */
   (function () {
     var u0 = ZD0 + L / 2, u1 = ZD1 + L / 2;
-    var tr = [{ u0: u0 + 8, u1: u0 + 96, v0: 97, v1: 109, bars: 6 }, { u0: u1 - 96, u1: u1 - 8, v0: 97, v1: 109, bars: 6 }];
+    var tr = [{ u0: u0 + 8, u1: u0 + 80, v0: 97, v1: 109, bars: 6 }, { u0: u1 - 80, u1: u1 - 8, v0: 97, v1: 109, bars: 6 }];
     var f = entry.frame;
     box(f, lum(), u0, u1, DORMER_TOP - 3, DORMER_TOP, 0, D);
     box(f, lum(), u0, u1, 109, DORMER_TOP - 3, 0, D);
@@ -515,31 +524,29 @@ function buildShed(THREE, hooks) {
     layers.roofFrame.add(m);
   }
   function rafterY(x) { return WALL_H + (HALF - Math.abs(x)) * PITCH; }
+  // rafter pair with a 2x4 collar tie; the tie butts the underside of each rafter at its mid-height
   function truss(z, type) {
+    var dorm = type === 'dormer';
     beam(HALF, WALL_H, 0, RIDGE, z, 1);
-    if (type === 'dormer') { beam(-HALF, DORMER_TOP, 0, RIDGE, z, 1); return; }
-    beam(-HALF, WALL_H, 0, RIDGE, z, 1);
+    beam(-HALF, dorm ? DORMER_TOP : WALL_H, 0, RIDGE, z, 1);
     if (type === 'plain') return;
-    beam(KX, rafterY(KX), CX, COLLAR, z, -1);
-    beam(-KX, rafterY(KX), -CX, COLLAR, z, -1);
-    beam(-CX, COLLAR, CX, COLLAR, z, -1);
-    var kp = new THREE.Mesh(new THREE.BoxGeometry(D, RIDGE - COLLAR - 2, T), lum());
-    kp.position.set(0, (RIDGE + COLLAR) / 2 - 1, z);
-    layers.roofFrame.add(kp);
+    var yc = COLLAR + D / 2;
+    box(layers.roofFrame, lum(), -slopeX(yc, dorm), slopeX(yc, false), COLLAR, COLLAR + D, z - T / 2, z + T / 2);
   }
+  // 16" o.c. down the length; the dormer ends get tripled rafters
   for (var k = 1; k <= 20; k++) {
     var z = -L / 2 + 16 * k;
-    if (z > ZD0 && z < ZD1) truss(z, 'dormer');
-    else truss(z, 'truss');
-    if (z === ZD0) { truss(z - T, 'truss'); truss(z - 2 * T, 'truss'); }
-    if (z === ZD1) { truss(z + T, 'truss'); truss(z + 2 * T, 'truss'); }
+    if (z > ZD0 + 2 && z < ZD1 - 2) truss(z, 'dormer');
+    else if (z <= ZD0 - 3 * T || z >= ZD1 + 3 * T) truss(z, 'truss');
   }
+  [ZD0, ZD0 - T, ZD0 - 2 * T, ZD1, ZD1 + T, ZD1 + 2 * T].forEach(function (z) { truss(z, 'truss'); });
   truss(-L / 2 - D / 2, 'plain');
   truss(L / 2 + D / 2, 'plain');
   box(layers.roofFrame, lum(), -T / 2, T / 2, RIDGE - 5.5, RIDGE + 1, -L / 2, L / 2);
 
   /* ---------- roof sheathing: single-sided, seen from inside only ---------- */
-  function panel(pts, toward) {
+  function panel(pts, toward) { panelTo(layers.roofSkin, M.osbFront, pts, toward); }
+  function panelTo(layer, material, pts, toward) {
     var p = pts.map(function (a) { return new THREE.Vector3(a[0], a[1], a[2]); });
     var nrm = new THREE.Vector3().subVectors(p[1], p[0]).cross(new THREE.Vector3().subVectors(p[2], p[0])).normalize();
     var t = new THREE.Vector3(toward[0], toward[1], toward[2]).sub(p[0]);
@@ -558,7 +565,7 @@ function buildShed(THREE, hooks) {
     g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
     g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
     g.computeVertexNormals();
-    layers.roofSkin.add(new THREE.Mesh(g, M.osbFront));
+    layer.add(new THREE.Mesh(g, material));
   }
   var Z0 = -(L / 2 + D), Z1 = L / 2 + D, EY = WALL_H + SK, RY = RIDGE + SK, DY = DORMER_TOP + 4;
   var inside = [0, 60, 0], zm = (ZD0 + ZD1) / 2;
@@ -568,6 +575,28 @@ function buildShed(THREE, hooks) {
   panel([[-HALF, DY, ZD0], [-HALF, DY, ZD1], [0, RY, ZD1], [0, RY, ZD0]], [-40, 100, zm]);
   panel([[-HALF, EY, ZD0], [-HALF, DY, ZD0], [0, RY, ZD0]], [-60, 110, zm]);
   panel([[-HALF, EY, ZD1], [-HALF, DY, ZD1], [0, RY, ZD1]], [-60, 110, zm]);
+
+  /* ---------- ceiling sheetrock (optional layer): under the rafters up to the collar ties, flat across the ties ---------- */
+  (function () {
+    var rock = new THREE.MeshLambertMaterial({ color: 0xeceae4, side: THREE.FrontSide });
+    var t = 0.5, w2 = W / 2, zA = -L / 2, zB = L / 2, yC = COLLAR - t;
+    function under(x, dorm) { return (dorm ? DORMER_TOP + (HALF - x) * DPITCH : WALL_H + (HALF - x) * PITCH) - t; }
+    var xr = slopeX(COLLAR, false), xd = slopeX(COLLAR, true), room = [0, 40, 0];
+    function sheet(pts, toward) { panelTo(layers.ceiling, rock, pts, toward); }
+    sheet([[w2, under(w2), zA], [w2, under(w2), zB], [xr, yC, zB], [xr, yC, zA]], room);                     // two-window slope
+    [[zA, ZD0], [ZD1, zB]].forEach(function (r) {                                                               // entry slope, outside the dormer
+      sheet([[-w2, under(w2), r[0]], [-w2, under(w2), r[1]], [-xr, yC, r[1]], [-xr, yC, r[0]]], room);
+    });
+    sheet([[-w2, under(w2, true), ZD0], [-w2, under(w2, true), ZD1], [-xd, yC, ZD1], [-xd, yC, ZD0]], room);   // dormer slope
+    [[ZD0, 1], [ZD1, -1]].forEach(function (c) {                                                                // dormer cheeks, just in front of the end rafters
+      var cz = c[0] + c[1] * (T / 2 + 0.1);
+      sheet([[-w2, under(w2), cz], [-w2, under(w2, true), cz], [-xd, yC, cz], [-xr, yC, cz]], [-60, 110, c[0] + c[1] * 20]);
+    });
+    sheet([[-xr, yC, zA], [xr, yC, zA], [xr, yC, ZD0], [-xr, yC, ZD0]], room);                                   // flat, at the ties
+    sheet([[-xd, yC, ZD0], [xr, yC, ZD0], [xr, yC, ZD1], [-xd, yC, ZD1]], room);
+    sheet([[-xr, yC, ZD1], [xr, yC, ZD1], [xr, yC, zB], [-xr, yC, zB]], room);
+    layers.ceiling.visible = false;
+  })();
 
   /* ---------- 1 ft floor grid, measured from the double-door / entry-wall corner ---------- */
   (function () {
@@ -613,7 +642,8 @@ function buildShed(THREE, hooks) {
     }
   })();
 
-  return { root: root, layers: layers, size: { W: W, L: L, WALL_H: WALL_H, RIDGE: RIDGE, HALF: HALF, ZD0: ZD0, ZD1: ZD1, DORMER_TOP: DORMER_TOP } };
+  return { root: root, layers: layers, size: { W: W, L: L, WALL_H: WALL_H, RIDGE: RIDGE, HALF: HALF, ZD0: ZD0, ZD1: ZD1, DORMER_TOP: DORMER_TOP, COLLAR: COLLAR,
+    slopeX: slopeX, dormerWins: [[ZD0 + 8, ZD0 + 80, 97, 109], [ZD1 - 80, ZD1 - 8, 97, 109]] } };
 }
 /* Machines. Inches. Each group's origin is the center of its overall footprint, on the floor.
    Local +z is the operator side (front); local x is the machine's width or length as noted.
@@ -1693,6 +1723,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }
   function wallState(w, a, y) { var p = wallPos(w, a, y); return { w: w, a: a, y: y, x: p[0], z: p[2], r: WALLS[w].r }; }
   function apply(g, st) {
+    if (g.userData.outlet) pineDirty = true;
     if (g.userData.mount === 'roof') {
       var ls = roofState(g, st.x, st.z);
       g.userData.r = 0;
@@ -1812,7 +1843,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   function roofState(g, x, z) {
     var isL = g.userData.dev === 'light';
     var bz = isL ? Math.max(z - 40, Math.min(z + 40, trussZ(z))) : z;   // focus lights hang from a box on blocking
-    return { x: x, z: z, y: hangOf(g), r: 0, bz: bz, top: roofSlope(x, bz, bz).y };
+    return { x: x, z: z, y: hangOf(g), r: 0, bz: bz, top: Math.min(roofSlope(x, bz, bz).y, SZ.COLLAR) };   // inside the ties' span, it hangs from a tie
   }
   function roofBox(g, st) {
     if (g.userData.dev === 'light') return { x0: st.x - 3, x1: st.x + 3, y0: st.y - 2, y1: st.y, z0: st.z - 48, z1: st.z + 48 };
@@ -1870,7 +1901,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     items.push(g); byId[id] = g; mGroup.add(g);
     return g;
   }
-  function removeItem(g) { mGroup.remove(g); items.splice(items.indexOf(g), 1); delete byId[g.userData.machine.id]; }
+  function removeItem(g) { if (g.userData.outlet) pineDirty = true; mGroup.remove(g); items.splice(items.indexOf(g), 1); delete byId[g.userData.machine.id]; }
 
   /* ---- circuits ---- */
   function circuitById(id) { for (var i = 0; i < circuits.length; i++) if (circuits[i].id === id) return circuits[i]; return null; }
@@ -2329,6 +2360,104 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (selected && !selected.visible) select(null);
   }
   function setVis(k, on) { vis[k] = on; refreshVis(); }
+
+  /* ---- interior finishes: ceiling sheetrock and pine wall boards (display only) ---- */
+  var finish = { rock: false, pine: false }, pineGroup = new THREE.Group(), pineDirty = true;
+  scene.add(pineGroup);
+  var BOARD = 5.5, BLEN = 96, GAP = 0.1, PT = 0.75;                   // 1x6 face, 8' boards, butt/row gap, thickness
+  var STAG = [0, 48, 24, 72, 36, 84, 12, 60];                            // joint offsets, row by row
+  var PINE = [[0.86, 0.69, 0.48], [0.82, 0.64, 0.43], [0.89, 0.73, 0.52], [0.84, 0.67, 0.45], [0.80, 0.62, 0.41]];
+  var PINE_WALLS = {
+    left:  { lo: -HL, hi: HL, at: function (a, v) { return [-HW + PT, v, a]; }, n: [1, 0, 0] },
+    right: { lo: -HL, hi: HL, at: function (a, v) { return [HW - PT, v, a]; }, n: [-1, 0, 0] },
+    back:  { lo: -HW, hi: HW, at: function (a, v) { return [a, v, HL - PT]; }, n: [0, 0, -1] },
+    front: { lo: -HW, hi: HW, at: function (a, v) { return [a, v, -HL + PT]; }, n: [0, 0, 1] }
+  };
+  // height of the ceiling line where it meets each wall, at position a along the wall
+  function pineTop(w, a) {
+    var t = 0.5;
+    if (w === 'left' || w === 'right') {
+      var dorm = w === 'left' && a > SZ.ZD0 && a < SZ.ZD1;
+      return (dorm ? SZ.DORMER_TOP + (SZ.HALF - HW) * DPITCH : WALL_TOP + (SZ.HALF - HW) * PITCH) - t;
+    }
+    return Math.min(roofAt(a), SZ.COLLAR) - t;
+  }
+  function pineCuts(w) {
+    var ax = WALLS[w].ax, out = [];
+    OPEN.forEach(function (b) { if (b.w === w) out.push([b[ax + '0'], b[ax + '1'], b.y0, b.y1]); });
+    if (w === 'left') SZ.dormerWins.forEach(function (d) { out.push(d); });
+    items.forEach(function (g) {                                         // outlets and switches get a cutout
+      if (!g.userData.outlet || g.userData.wall !== w) return;
+      var b = boxOf(g); out.push([b[ax + '0'] - 0.1, b[ax + '1'] + 0.1, b.y0 - 0.1, b.y1 + 0.1]);
+    });
+    return out;
+  }
+  function buildPine() {
+    pineDirty = false;
+    while (pineGroup.children.length) { var c0 = pineGroup.children.pop(); c0.geometry.dispose(); }
+    Object.keys(PINE_WALLS).forEach(function (w) {
+      var P = PINE_WALLS[w], cuts = pineCuts(w), pos = [], col = [];
+      var maxTop = 0; for (var a = P.lo; a <= P.hi; a += 4) maxTop = Math.max(maxTop, pineTop(w, a));
+      var kinks = [SZ.ZD0, SZ.ZD1, 0, SZ.slopeX(SZ.COLLAR, false), -SZ.slopeX(SZ.COLLAR, false)];
+      function quad(a0, a1, l0, l1, h0, h1, c) {
+        var A = P.at(a0, l0), B = P.at(a1, l1), C = P.at(a1, h1), D = P.at(a0, h0);
+        var e1 = [B[0] - A[0], B[1] - A[1], B[2] - A[2]], e2 = [D[0] - A[0], D[1] - A[1], D[2] - A[2]];
+        var nx = e1[1] * e2[2] - e1[2] * e2[1], ny = e1[2] * e2[0] - e1[0] * e2[2], nz = e1[0] * e2[1] - e1[1] * e2[0];
+        var tri = nx * P.n[0] + ny * P.n[1] + nz * P.n[2] > 0 ? [A, B, C, A, C, D] : [A, C, B, A, D, C];
+        tri.forEach(function (v) { pos.push(v[0], v[1], v[2]); col.push(c[0], c[1], c[2]); });
+      }
+      for (var r = 0; r * BOARD < maxTop; r++) {
+        var b0 = r * BOARD, b1 = b0 + BOARD - GAP, off = STAG[r % STAG.length], start = P.lo - off;
+        var br = [P.lo, P.hi], joints = {};
+        for (var j = start + BLEN; j < P.hi; j += BLEN) if (j > P.lo) { br.push(j); joints[j.toFixed(3)] = 1; }
+        var rc = cuts.filter(function (c) { return c[2] < b1 && c[3] > b0; });
+        rc.forEach(function (c) { br.push(c[0], c[1]); });
+        kinks.forEach(function (k) { br.push(k); });
+        // where a sloped ceiling line crosses this row's top or bottom
+        for (var a2 = P.lo; a2 < P.hi; a2 += 2) {
+          var t0 = pineTop(w, a2), t1 = pineTop(w, Math.min(P.hi, a2 + 2));
+          [b0, b1].forEach(function (lv) { if ((t0 - lv) * (t1 - lv) < 0) br.push(a2 + 2 * (lv - t0) / (t1 - t0)); });
+        }
+        br = br.filter(function (x) { return x >= P.lo && x <= P.hi; }).sort(function (x, y) { return x - y; });
+        for (var i = 1; i < br.length; i++) {
+          var p = br[i - 1], q = br[i];
+          if (q - p < 0.02) continue;
+          var mid = (p + q) / 2, idx = Math.floor((mid - start) / BLEN);
+          if (joints[p.toFixed(3)]) p += GAP;
+          var tp = pineTop(w, p + 0.001), tq = pineTop(w, q - 0.001);
+          // vertical pieces of this row left after the cutouts that cover this stretch
+          var lo = b0, segs = [];
+          rc.filter(function (c) { return c[0] <= mid && c[1] >= mid; }).sort(function (x, y) { return x[2] - y[2]; }).forEach(function (c) {
+            if (c[2] > lo) segs.push([lo, Math.min(c[2], b1)]);
+            lo = Math.max(lo, c[3]);
+          });
+          if (lo < b1) segs.push([lo, b1]);
+          var shade = PINE[((r * 7 + idx * 3) % PINE.length + PINE.length) % PINE.length];
+          segs.forEach(function (sg) {
+            var h0 = Math.min(sg[1], tp), h1 = Math.min(sg[1], tq);
+            if (h0 <= sg[0] + 0.02 && h1 <= sg[0] + 0.02) return;
+            quad(p, q, sg[0], sg[0], Math.max(h0, sg[0]), Math.max(h1, sg[0]), shade);
+          });
+        }
+      }
+      var geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+      geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+      geo.computeVertexNormals();
+      pineGroup.add(new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true })));
+    });
+  }
+  function setFinish(k, on) {
+    finish[k] = on;
+    if (k === 'rock') shed.layers.ceiling.visible = on;
+    if (k === 'pine') { pineGroup.visible = on; if (on && pineDirty) buildPine(); }
+    var b = document.querySelector('[data-fin="' + k + '"]'); if (b) b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    try { localStorage.setItem('shed-finish-v1', JSON.stringify(finish)); } catch (e) {}
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-fin]'), function (b) {
+    b.addEventListener('click', function () { var k = b.getAttribute('data-fin'); setFinish(k, !finish[k]); });
+  });
+  pineGroup.visible = false;
   Array.prototype.forEach.call(document.querySelectorAll('[data-vis]'), function (b) {
     b.addEventListener('click', function () { var k = b.getAttribute('data-vis'); setVis(k, !vis[k]); });
   });
@@ -2414,6 +2543,8 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     var dormer = an.side < 0 && an.z >= SZ.ZD0 && an.z <= SZ.ZD1;
     if (dormer) p.push([wx, SZ.DORMER_TOP - 1, an.z]);
     p.push([an.side * (HW - 3.5), roofSlope(an.side * (HW - 3.5), an.z, an.z).y - 1, an.z]);
+    var xe = SZ.slopeX(SZ.COLLAR, dormer);
+    if (Math.abs(an.x) < xe) p.push([an.side * xe, SZ.COLLAR - 1, an.z]);      // up the rafter to the tie, then along it
     p.push([an.x, an.top, an.z]);
     return p;
   }
@@ -2442,8 +2573,10 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     }
     if (A.roof && !Bn.roof) return hop(Bn, A).reverse();
     if (A.side === Bn.side) return [[A.x, A.top, A.z], [Bn.x, Bn.top, Bn.z]];      // along a running board
-    var cx = 26, cy = 141 - 1;                                                       // over the collar tie
-    return [[A.x, A.top, A.z], [A.x, A.top, Bn.z], [A.side * cx, cy, Bn.z], [-A.side * cx, cy, Bn.z], [Bn.x, Bn.top, Bn.z]];
+    // across on top of a collar tie, from where it meets the rafter on one side to the other
+    function xe(side) { return SZ.slopeX(SZ.COLLAR + 4, side < 0 && Bn.z >= SZ.ZD0 && Bn.z <= SZ.ZD1); }
+    var cy = SZ.COLLAR + 4;
+    return [[A.x, A.top, A.z], [A.x, A.top, Bn.z], [A.side * xe(A.side), cy, Bn.z], [-A.side * xe(-A.side), cy, Bn.z], [Bn.x, Bn.top, Bn.z]];
   }
 
   function routeCircuit(c, panelA) {
@@ -2633,7 +2766,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     'Planning drawing only. Not for permit or construction.',
     'Massachusetts: permits issued after April 24, 2026 fall under the 2026 Massachusetts Electrical Code (the 2026 NEC with state amendments). Confirm the details with the Lunenburg wiring inspector.',
     'Routing follows the "up and over" method common in open-stud shops: horizontal runs stapled along the face of the top plate (about 7′ up), vertical drops down the side of a stud to each box. Many inspectors treat horizontal cable through open studs low on the wall as subject to damage. Some may still ask for MC cable or EMT conduit on exposed walls, or for the walls to be sheathed; ask before rough-in.',
-    'Lights: plug-in LED shop lights hang on chains, each from a switched ceiling receptacle on the rafter above it. Focus lights hang on cords from ceiling boxes on blocking and are switched with the shop lights. Ceiling boxes in a row are linked along a running board; the run to the far slope follows a truss over the collar tie.',
+    'Lights: plug-in LED shop lights hang on chains, each from a switched ceiling receptacle on the rafter (or the collar tie) above it. Focus lights hang on cords from ceiling boxes on blocking and are switched with the shop lights. Ceiling boxes in a row are linked along a running board; the run to the far slope goes up a rafter and across the top of a collar tie.',
     'Floor boxes (the table saw sits mid-floor): the cable drops from the wall bay through the floor, runs under the floor, and comes up into a box listed for floor use with an in-use cover. The underside of a shed floor is a damp location, so the run under the floor is UF-B cable (or wire in conduit), strapped to the joists and protected where it could be hit.',
     'GFCI: every circuit with a receptacle is shown on a GFCI breaker, 120V and 240V, including the ceiling receptacles for the lights. Recent NEC editions require GFCI on receptacles in accessory buildings. Motors can nuisance-trip some GFCIs; ask the inspector.',
     'Outbuilding feeder: 4 wires (2 hots, neutral, ground). Keep neutral and ground separate in the shed panel, and drive a grounding electrode (ground rods) at the shed. The shed panel\'s main breaker serves as the building disconnect.',
@@ -2981,7 +3114,10 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   initSync();
   updateLabels();
 
+  (function () { var f = null; try { f = JSON.parse(localStorage.getItem('shed-finish-v1') || 'null'); } catch (e) {}
+    if (f) { setFinish('rock', !!f.rock); setFinish('pine', !!f.pine); } })();
   (function loop() {
+    if (finish.pine && pineDirty) buildPine();
     controls.update();
     renderer.render(scene, camera);
     requestAnimationFrame(loop);
