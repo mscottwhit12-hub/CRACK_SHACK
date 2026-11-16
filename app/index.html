@@ -1483,43 +1483,50 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       }
       return c;
     }
-    var U0 = -260, U1 = 1620, V0 = -260, V1 = 960;              // modeled area, in screenshot pixels
-    var DRIVE = [[-120, 800], [60, 722], [150, 672], [260, 610], [350, 555], [430, 495], [480, 445], [520, 400], [560, 350], [600, 300],
+    var U0 = -1000, U1 = 2000, V0 = -520, V1 = 1380;            // modeled area, in first-screenshot pixels (the wider second screenshot is mapped into them)
+    var DRIVE = [[-432,924],[-266,854],[-175,817],[-83,780],[9,744],[101,703],[193,661], [260, 610], [350, 555], [430, 495], [480, 445], [520, 400], [560, 350], [600, 300],
                  [640, 255], [690, 205], [750, 155], [820, 115], [900, 85], [980, 65], [1060, 52], [1140, 50], [1210, 58], [1270, 76], [1320, 102], [1360, 130]];
     var APRON = [[1150, 38], [1360, 18], [1365, 205], [1312, 192], [1282, 142], [1232, 96], [1150, 76]];
     var WALK = [[1086, 92], [1092, 180], [1074, 262], [1052, 335]];
-    var ROUGH = [[560, 130], [700, 60], [860, 40], [760, 150], [640, 240], [520, 350], [440, 430], [330, 520], [200, 620], [120, 720], [-260, 760], [-260, 640], [0, 590], [160, 470], [260, 380], [330, 300], [440, 260], [500, 200]];
-    var FOREST = [
-      [[-260, -260], [1100, -260], [1100, 0], [1000, 12], [880, 32], [790, 22], [700, 55], [600, 100], [530, 170], [470, 238], [400, 290], [320, 302], [250, 372], [170, 452], [90, 532], [0, 582], [-260, 642]],
-      [[380, 960], [430, 700], [470, 642], [560, 602], [660, 612], [760, 600], [840, 540], [900, 502], [980, 512], [1060, 552], [1150, 542], [1250, 522], [1349, 472], [1620, 450], [1620, 960]],
-      [[1335, 250], [1620, 200], [1620, 450], [1349, 470]]
-    ];
-    function nearDrive(u, v, pad) {
-      for (var i = 1; i < DRIVE.length; i++) {
-        var a = DRIVE[i - 1], b = DRIVE[i], dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((u - a[0]) * dx + (v - a[1]) * dy) / (dx * dx + dy * dy)));
+    var ROUGH = [[560, 130], [700, 60], [860, 40], [760, 150], [640, 240], [520, 350], [440, 430], [330, 520], [200, 620], [120, 720], [-120, 830], [-400, 940], [-520, 860], [-300, 700], [0, 590], [160, 470], [260, 380], [330, 300], [440, 260], [500, 200]];
+    // from the second screenshot: the walkable property line (lawn inside, woods outside), the road, a neighbor's clearing,
+    // and the three medium trees that stand just off the tree line [u, v, crown diameter in inches]
+    var PROP = [[1539,43],[1510,21],[1473,12],[1409,14],[1359,38],[1322,14],[1115,-45],[861,-40],[804,-27],[721,12],[636,62],[533,141],[381,282],[217,415],[61,507],[-70,613],[-176,678],[-300,733],[-384,784],[-403,808],[-406,865],[-349,983],[-329,1047],[-311,1058],[-268,1056],[-138,1007],[-64,988],[81,911],[197,823],[280,786],[388,712],[445,687],[484,687],[517,698],[625,768],[664,779],[708,775],[787,736],[881,733],[962,766],[1048,764],[1282,687],[1333,635],[1354,582],[1365,516],[1442,409],[1543,214],[1550,176],[1537,120]];
+    var CLEAR = [[377,777],[543,777],[561,1053],[340,1062],[350,906]];
+    var ROAD = [[-1002,336],[-836,427],[-763,483],[-671,565],[-561,731],[-478,860],[-423,997],[-386,1071],[-331,1200],[-266,1384]];
+    var MEDIUM = [[950,594,282],[517,690,237],[389,744,113]];
+    function nearLine(L, u, v, pad) {
+      for (var i = 1; i < L.length; i++) {
+        var a = L[i - 1], b = L[i], dx = b[0] - a[0], dy = b[1] - a[1], t = Math.max(0, Math.min(1, ((u - a[0]) * dx + (v - a[1]) * dy) / (dx * dx + dy * dy)));
         if (Math.hypot(u - a[0] - t * dx, v - a[1] - t * dy) < pad) return true;
       }
       return false;
     }
+    function nearDrive(u, v, pad) { return nearLine(DRIVE, u, v, pad); }
 
     /* ---- ground: painted lawn, rough grass, forest floor, asphalt drive, stone walk ---- */
-    var CW = 2048, k = CW / (U1 - U0), CH = Math.round((V1 - V0) * k);
+    var CW = 4096, k = CW / (U1 - U0), CH = Math.round((V1 - V0) * k);
     var cv = document.createElement('canvas'); cv.width = CW; cv.height = CH;
     var g = cv.getContext('2d');
     g.setTransform(k, 0, 0, k, -U0 * k, -V0 * k);
     function poly(pts, fill) { g.beginPath(); pts.forEach(function (p, i) { if (i) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); }); g.closePath(); g.fillStyle = fill; g.fill(); }
     function line(pts, w, col) { g.beginPath(); pts.forEach(function (p, i) { if (i) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); }); g.lineWidth = w; g.strokeStyle = col; g.lineCap = 'round'; g.lineJoin = 'round'; g.stroke(); }
+    g.fillStyle = '#3c4728'; g.fillRect(U0, V0, U1 - U0, V1 - V0);                       // forest floor everywhere
+    poly(CLEAR, '#62793b');
+    g.save();                                                                             // lawn inside the property line
+    g.beginPath(); PROP.forEach(function (p, i) { if (i) g.lineTo(p[0], p[1]); else g.moveTo(p[0], p[1]); }); g.closePath(); g.clip();
     g.fillStyle = '#5f7c37'; g.fillRect(U0, V0, U1 - U0, V1 - V0);
-    g.save(); g.globalAlpha = 0.03;                                                        // mowing stripes
-    for (var st = -800, si = 0; st < 2400; st += 36, si++) { g.fillStyle = si % 2 ? '#ffffff' : '#000000'; g.beginPath(); g.moveTo(st, V0); g.lineTo(st + 18, V0); g.lineTo(st + 18 - 700, V1); g.lineTo(st - 700, V1); g.fill(); }
-    g.restore();
+    g.globalAlpha = 0.03;                                                                 // mowing stripes
+    for (var st = -1800, si = 0; st < 3200; st += 36, si++) { g.fillStyle = si % 2 ? '#ffffff' : '#000000'; g.beginPath(); g.moveTo(st, V0); g.lineTo(st + 18, V0); g.lineTo(st + 18 - 1100, V1); g.lineTo(st - 1100, V1); g.fill(); }
+    g.globalAlpha = 1;
     poly(ROUGH, '#7f8350');
-    FOREST.forEach(function (f) { poly(f, '#3c4728'); });
-    for (var n = 0; n < 9000; n++) {                                                        // grass texture
+    g.restore();
+    for (var n = 0; n < 30000; n++) {                                                       // grass texture
       var nu = U0 + rnd() * (U1 - U0), nv = V0 + rnd() * (V1 - V0);
       g.fillStyle = rnd() < 0.5 ? 'rgba(40,60,20,0.18)' : 'rgba(190,190,120,0.14)';
       g.fillRect(nu, nv, 1.6 + rnd() * 2.5, 1.6 + rnd() * 2.5);
     }
+    line(ROAD, 84, '#77756f'); line(ROAD, 78, '#8b8983');
     line(DRIVE, 34, '#3b3c3f'); line(DRIVE, 30, '#4a4b4f');
     poly(APRON, '#4a4b4f');
     line(WALK, 9, '#bba985');
@@ -1531,13 +1538,13 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
 
     /* ---- trees: the tree lines as instanced conifers and broadleaf trees ---- */
     var conifers = [], broad = [];
-    FOREST.forEach(function (f) {
-      for (var u = U0; u < U1; u += 46) for (var v = V0; v < V1; v += 46) {
-        var pu = u + (rnd() - 0.5) * 40, pv = v + (rnd() - 0.5) * 40;
-        if (!inPoly([pu, pv], f) || nearDrive(pu, pv, 22)) continue;
-        (rnd() < 0.68 ? conifers : broad).push([pu, pv, 0.75 + rnd() * 0.5, rnd() * Math.PI * 2]);
-      }
-    });
+    // woods everywhere outside the property line; trunks stand far enough back that no crown hangs over the line
+    for (var fu = U0; fu < U1; fu += 50) for (var fv = V0; fv < V1; fv += 50) {
+      var pu = fu + (rnd() - 0.5) * 44, pv = fv + (rnd() - 0.5) * 44, sz = 0.75 + rnd() * 0.5, rot = rnd() * Math.PI * 2, con = rnd() < 0.68;
+      if (inPoly([pu, pv], PROP) || inPoly([pu, pv], CLEAR)) continue;
+      if (nearLine(PROP.concat([PROP[0]]), pu, pv, 62 * sz) || nearLine(CLEAR.concat([CLEAR[0]]), pu, pv, 40) || nearDrive(pu, pv, 70) || nearLine(ROAD, pu, pv, 95)) continue;
+      (con ? conifers : broad).push([pu, pv, sz, rot]);
+    }
     var mtx = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), up = new THREE.Vector3(0, 1, 0);
     function instanced(geo, color, list, size) {
       var m = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color: color }), list.length);
@@ -1574,6 +1581,18 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     }
     [[664, 147], [546, 279], [443, 415], [225, 570]].forEach(function (p) { young(p[0], p[1], 120, 1, 9, 8); });
     [[913, 119, 192], [746, 217, 156], [627, 341, 168], [505, 483, 144], [288, 661, 180]].forEach(function (p) { young(p[0], p[1], p[2], 1.8, 13, 15); });
+    // medium trees just off the tree line: crown as wide as the circle drawn on the screenshot
+    var leaf2 = new THREE.MeshLambertMaterial({ color: 0x4f7a34 });
+    MEDIUM.forEach(function (m) {
+      var d = m[2], H = Math.max(170, d * 1.3), t = new THREE.Group();
+      var tr = new THREE.Mesh(new THREE.CylinderGeometry(d * 0.02, d * 0.035, H * 0.6, 8), bark); tr.position.y = H * 0.3; t.add(tr);
+      var main = new THREE.Mesh(new THREE.IcosahedronGeometry(d / 2, 1), leaf2); main.scale.y = 0.85; main.position.y = H - d * 0.45; t.add(main);
+      for (var i = 0; i < 4; i++) {
+        var a = rnd() * Math.PI * 2, bl = new THREE.Mesh(new THREE.IcosahedronGeometry(d * 0.28, 1), leaf2);
+        bl.position.set(Math.cos(a) * d * 0.2, H - d * (0.35 + rnd() * 0.35), Math.sin(a) * d * 0.2); t.add(bl);
+      }
+      t.position.copy(P(m[0], m[1])); tall.add(t);
+    });
     // shrubs along the front of the house
     [[1030, 100], [1036, 212], [1058, 318], [1092, 470]].forEach(function (p) {
       var b = new THREE.Mesh(new THREE.IcosahedronGeometry(30, 1), new THREE.MeshLambertMaterial({ color: 0x3e5e2c }));
@@ -1608,9 +1627,23 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       var gd = new THREE.Mesh(new THREE.BoxGeometry(108, 90, 2), new THREE.MeshLambertMaterial({ color: 0xe9e6de }));
       gd.position.set(sgn * 70, 45, -182 * S / 2 - 1); wingA.add(gd);
     });
-    // deck on the back of the house
-    var deck = new THREE.Mesh(new THREE.BoxGeometry(80 * S, 30, 170 * S), new THREE.MeshLambertMaterial({ color: 0x8a6a4a }));
-    deck.position.copy(P(1296, 392, 15)); deck.rotation.y = hr; tall.add(deck);
+    // paver patio behind the house, with a dining table and umbrella, a sofa, a fire pit with chairs, and a grill
+    (function () {
+      var pt = new THREE.Group(), L = function (c) { return new THREE.MeshLambertMaterial({ color: c }); };
+      function bx(c, w, h, d, x, y, z, ry) { var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), L(c)); m.position.set(x, y, z); if (ry) m.rotation.y = ry; pt.add(m); return m; }
+      function cyl(c, r0, r1, h, x, y, z) { var m = new THREE.Mesh(new THREE.CylinderGeometry(r0, r1, h, 20), L(c)); m.position.set(x, y, z); pt.add(m); return m; }
+      bx(0xb5aa9b, 262, 3, 647, 0, 1.5, 0);                                                   // pavers
+      bx(0x9c9284, 270, 2.4, 655, 0, 1.2, 0);                                                 // border course
+      cyl(0xe9e6de, 24, 24, 1.5, 20, 29, -215); cyl(0x8c8f93, 1.2, 1.2, 96, 20, 48, -215);   // table, umbrella pole
+      var um = new THREE.Mesh(new THREE.ConeGeometry(54, 16, 8), L(0xf1ece0)); um.position.set(20, 100, -215); pt.add(um);
+      for (var i = 0; i < 4; i++) { var a = i * Math.PI / 2 + 0.4; bx(0xe9e6de, 18, 18, 18, 20 + Math.cos(a) * 40, 9, -215 + Math.sin(a) * 40, -a); }
+      bx(0xd9a08c, 34, 16, 84, 60, 8, -20); bx(0xd9a08c, 8, 30, 84, 76, 15, -20);            // sofa
+      bx(0x8a6a4a, 24, 14, 44, 14, 7, -20);                                                    // coffee table
+      cyl(0x6f7175, 20, 22, 14, 10, 7, 190);                                                   // fire pit
+      for (var j = 0; j < 4; j++) { var b = j * Math.PI / 2 + 0.8; bx(0xf2efe8, 22, 16, 22, 10 + Math.cos(b) * 50, 8, 190 + Math.sin(b) * 50, -b); }
+      bx(0x2a2c2f, 50, 36, 24, -95, 18, 90); bx(0x3b3d41, 30, 12, 22, -95, 42, 90);          // grill
+      pt.position.copy(P(1300, 408)); pt.rotation.y = hr; tall.add(pt);
+    })();
     // the car on the apron
     var car = new THREE.Group(), paint = new THREE.MeshLambertMaterial({ color: 0x2b2f36 });
     var body = new THREE.Mesh(new THREE.BoxGeometry(72, 26, 190), paint); body.position.y = 22; car.add(body);
@@ -1651,7 +1684,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   controls.dampingFactor = 0.12;
   controls.maxPolarAngle = Math.PI * 0.85;
   controls.minDistance = 10;
-  controls.maxDistance = 6000;
+  controls.maxDistance = 9000;
 
   // Layer toggles. "labels" is virtual: name tags over machines (the selected one always shows).
   var showLabels = false;
