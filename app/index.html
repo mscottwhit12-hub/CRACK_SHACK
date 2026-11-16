@@ -254,6 +254,7 @@
           <button type="button" id="addsp">+ Switch</button>
           <button type="button" id="add3w">+ 3-way switch</button>
           <button type="button" id="addlight">+ 8′ light</button>
+          <button type="button" id="adddrop">+ 240V ceiling drop</button>
           <button type="button" id="f-default">Back to default layout</button>
         </div>
         <h2>Shed, measured</h2>
@@ -1187,18 +1188,62 @@ function buildMachines(THREE) {
     g.userData.rebuild = function () {};
     return g;
   };
-  // 8' LED strip light. Long axis on local z; top (mounting face) at y = 0, body hangs below.
-  list.makeLight = function (id) {
+  // Ceiling-hung pieces. Origin is at the hanging point's bottom (fixture top / cord end); local y up.
+  // setHang(len, boxDz) stretches the chains/cord up to the rafter and moves the ceiling box there.
+  function hangParts(g, chains, boxDz0) {
+    var chainMat = mat(0x8e9396), parts = [];
+    chains.forEach(function (z) {
+      var c = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.12, 1, 6), chainMat);
+      c.position.set(0, 0.5, z); g.add(c); parts.push(c);
+    });
+    var box = new THREE.Mesh(new THREE.BoxGeometry(4, 2.25, 4), mat(0x7d8387));
+    g.add(box);
+    var cover = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.15, 4.5), mat(0xf4f3ee));
+    g.add(cover);
+    g.userData.setHang = function (len, boxDz) {
+      len = Math.max(0.5, len);
+      parts.forEach(function (c) { c.scale.y = len; c.position.y = len / 2; });
+      box.position.set(0, len + 1.1, boxDz); cover.position.set(0, len - 0.05, boxDz);
+      if (g.userData.cord) { g.userData.cord.scale.y = len; g.userData.cord.position.set(0, len / 2, g.userData.cordZ); }
+    };
+  }
+  // 8' LED strip light hung on two chains, plugged into a switched ceiling receptacle on the rafter above.
+  list.makeLight = function (id, p) {
     var g = new THREE.Group();
     B(g, 0xeceeee, -2.5, 2.5, -1.6, 0, -48, 48);
     var lens = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.3, 94), new THREE.MeshBasicMaterial({ color: 0xfffbe8 }));
     lens.position.set(0, -1.75, 0); g.add(lens);
     [-46.5, 46.5].forEach(function (z) { B(g, 0xc9cccc, -2.6, 2.6, -1.8, 0, z - 1.5, z + 1.5); });
-    g.userData.machine = { id: id, label: '8′ LED strip light', model: '8 ft LED strip fixture, mounted to the rafters', dims: [['Size', '96″ × 5″']],
-      note: 'Slides along the shed and up and down the roof slope; crosses the ridge to the other side.' };
+    hangParts(g, [-42, 42]);
+    var cord = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.18, 1, 6), mat(0x222222));
+    g.add(cord); g.userData.cord = cord; g.userData.cordZ = 0;
+    g.userData.machine = { id: id, label: '8′ LED strip light', model: '8 ft LED shop light on chains, plugged into a switched ceiling receptacle',
+      dims: [['Size', '96″ × 5″']],
+      note: 'Hangs on chains from the rafters. Drag it along the shed or across; set the hang height below.' };
     g.userData.mount = 'roof';
     g.userData.dev = 'light';
-    g.userData.params = null;
+    g.userData.params = p || { h: 102 };
+    g.userData.p0 = { h: 102 };
+    g.userData.pspec = [['h', 'Hang height', 72, 150]];
+    g.userData.rebuild = function () {};
+    return g;
+  };
+  // 240V twist-lock ceiling drop: box on the rafter, cord with strain relief down to a twist-lock connector.
+  list.makeDrop = function (id, p) {
+    var g = new THREE.Group();
+    B(g, 0xd27a3a, -1.4, 1.4, -4, 0, -1.4, 1.4);                            // L6-20 connector body
+    B(g, BLACK, -1, 1, -4.6, -4, -1, 1);
+    hangParts(g, []);
+    var cord = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1, 8), mat(0x222222));
+    g.add(cord); g.userData.cord = cord; g.userData.cordZ = 0;
+    g.userData.machine = { id: id, label: '240V ceiling drop', model: '240V 20A twist-lock (NEMA L6-20) cord drop from a ceiling box',
+      dims: [['Box', '4″ square']],
+      note: 'For machines in the middle of the floor. Box on a rafter with a strain-relief cord grip; set the cord-end height below.' };
+    g.userData.mount = 'roof';
+    g.userData.dev = 'drop';
+    g.userData.params = p || { h: 84 };
+    g.userData.p0 = { h: 84 };
+    g.userData.pspec = [['h', 'Cord end height', 48, 120]];
     g.userData.rebuild = function () {};
     return g;
   };
@@ -1400,18 +1445,20 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     ['110', 'back', -10, 80, 'c7'], ['110', 'back', -14, 120, 'c6'],
     ['220', 'right', -55, 13, 'c2'], ['220', 'right', 61, 13, 'c3'], ['110', 'right', 148, 15, 'c8'], ['110', 'right', 24, 74, 'c5'],
     ['110', 'right', -140, 18, 'c4'], ['110', 'right', -86, 20, 'c8'], ['110', 'right', 88, 24, 'c9'], ['110', 'right', 112, 18, 'c9'],
-    ['220', 'left', 4, 13, 'c1'], ['110', 'left', -86, 41, 'c10'], ['220', 'left', -114, 22, 'c11'],
+    ['220', 'left', 4, 13, 'c11'], ['110', 'left', -86, 41, 'c10'], ['220', 'left', -114, 22, 'c11'],
     ['110', 'left', -150, 40, 'c10'], ['110', 'left', 50, 18, 'c10'],
     ['3w', 'left', 100, 46, 'c6'], ['3w', 'front', 44, 46, 'c6'], ['sp', 'left', 84, 46, 'c6']
   ];
   // 8' strips, three per roof slope: [x (signed, + = two-window side), z center, circuit]
-  var DEF_LIGHTS = [[70, -112, 'c6'], [70, 0, 'c6'], [70, 112, 'c6'], [-70, -84, 'c6'], [-70, 12, 'c6'], [-70, 116, 'c6']];
+  var DEF_LIGHTS = [[60, -112, 'c6'], [60, 0, 'c6'], [60, 112, 'c6'], [-60, -84, 'c6'], [-60, 12, 'c6'], [-60, 116, 'c6']];
+  // 240V twist-lock ceiling drop above the table saw's right side (the saw sits mid-floor)
+  var DEF_DROPS = [[24, 4, 'c1']];
   // Branch circuits. v = volts, a = breaker amps, va = assumed running load (volt-amps) for the load check.
   var DEF_CIRCUITS = [
-    { id: 'c1',  name: 'Table saw (G0651)',          v: 240, a: 20, va: 3120 },
+    { id: 'c1',  name: 'Table saw ceiling drop (G0651)', v: 240, a: 20, va: 3120 },
     { id: 'c2',  name: 'Planer (G0891)',             v: 240, a: 20, va: 2760 },
     { id: 'c3',  name: 'Shaper (G1026)',             v: 240, a: 20, va: 2880 },
-    { id: 'c11', name: 'Spare 240V receptacle',      v: 240, a: 20, va: 0 },
+    { id: 'c11', name: 'Door wall 240V receptacles', v: 240, a: 20, va: 0 },
     { id: 'c4',  name: 'Dust collector (G1028Z2)',   v: 120, a: 20, va: 1440 },
     { id: 'c5',  name: 'Mini split',                 v: 120, a: 20, va: 1440 },
     { id: 'c6',  name: 'Lights & gable fan',         v: 120, a: 15, va: 0 },
@@ -1421,7 +1468,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     { id: 'c10', name: 'Door wall receptacles',      v: 120, a: 20, va: 0 }
   ];
   var circuits = JSON.parse(JSON.stringify(DEF_CIRCUITS));
-  var KEY = 'shed-layout-v6';
+  var KEY = 'shed-layout-v7';
   var EPS = 0.001, BIG = 1e6;
   var PAIRS = { 'saw|outfeed': 1, 'outfeed|saw': 1 };   // the outfeed table bolts under the saw's fence
   var WALLS = {
@@ -1513,7 +1560,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }
   function boxAt(g, x, y, z, r) { return rot(g.userData.lr, x, y, z, r); }
   function boxOf(g) {
-    if (g.userData.mount === 'roof') return lightBox(stateOf(g));
+    if (g.userData.mount === 'roof') return roofBox(g, stateOf(g));
     return boxAt(g, g.position.x, g.position.y, g.position.z, g.userData.r);
   }
   function partsAt(g, x, y, z, r) { return g.userData.parts.map(function (P) { return rot(P, x, y, z, r); }); }
@@ -1546,8 +1593,9 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   function blocked(g, st, o) {
     var B, i, j;
     if (g.userData.mount === 'roof') {
-      B = lightBox(lightState(st.x, st.z));
-      if (Math.abs(st.x) < 12 || Math.abs(st.x) > 88 || B.z0 < -HL - EPS || B.z1 > HL + EPS) return true;
+      var rs = roofState(g, st.x, st.z);
+      B = roofBox(g, rs);
+      if (Math.abs(st.x) < 6 || Math.abs(st.x) > HW - 6 || B.z0 < -HL - EPS || B.z1 > HL + EPS || rs.top - rs.y < 3) return true;
       for (i = 0; i < o.solid.length; i++) if (hit3(B, o.solid[i])) return true;
       return false;
     }
@@ -1585,17 +1633,18 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   /* ---- state of a piece ---- */
   function stateOf(g) {
     var u = g.userData;
-    if (u.mount === 'roof') return lightState(g.position.x, g.position.z);
+    if (u.mount === 'roof') return roofState(g, g.position.x, g.position.z);
     if (isWall(g)) return { w: u.wall, a: u.a, y: g.position.y, x: g.position.x, z: g.position.z, r: WALLS[u.wall].r };
     return { x: g.position.x, y: 0, z: g.position.z, r: u.r };
   }
   function wallState(w, a, y) { var p = wallPos(w, a, y); return { w: w, a: a, y: y, x: p[0], z: p[2], r: WALLS[w].r }; }
   function apply(g, st) {
     if (g.userData.mount === 'roof') {
-      var ls = lightState(st.x, st.z);
+      var ls = roofState(g, st.x, st.z);
       g.userData.r = 0;
       g.position.set(ls.x, ls.y, ls.z);
-      g.rotation.set(0, 0, (ls.x > 0 ? -1 : 1) * Math.atan(ls.m));
+      g.rotation.set(0, 0, 0);
+      g.userData.setHang(ls.top - ls.y, ls.bz - ls.z);
       return;
     }
     if (isWall(g)) { g.userData.wall = st.w; g.userData.a = st.a; g.userData.r = WALLS[st.w].r; }
@@ -1631,9 +1680,9 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       for (var d0 = 0; d0 <= reach; d0++) for (var s0 = 0; s0 < (d0 ? 4 : 1); s0++) {
         var c0 = [[0, 0], [0, d0], [0, -d0], [d0 * Math.sign(bx), 0]][s0];
         var cand = { x: bx - c0[0], z: bz + c0[1] };
-        if (!blocked(g, cand, o)) return lightState(cand.x, cand.z);
+        if (!blocked(g, cand, o)) return roofState(g, cand.x, cand.z);
         var other = { x: -cand.x, z: cand.z };
-        if (d0 > 0 && !blocked(g, other, o)) return lightState(other.x, other.z);
+        if (d0 > 0 && !blocked(g, other, o)) return roofState(g, other.x, other.z);
       }
       return null;
     }
@@ -1703,8 +1752,18 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     var r = SZ.HALF - Math.abs(x);
     return inDormer ? { y: SZ.DORMER_TOP + r * DPITCH, m: DPITCH } : { y: WALL_TOP + r * PITCH, m: PITCH };
   }
-  function lightState(x, z) { var rs = roofSlope(x, z - 48, z + 48); return { x: x, z: z, y: rs.y, m: rs.m, r: 0 }; }
-  function lightBox(st) { return { x0: st.x - 3, x1: st.x + 3, y0: st.y - 3.5, y1: st.y + 0.5, z0: st.z - 48, z1: st.z + 48 }; }
+  // Ceiling-hung pieces (lights, drops): hang at a set height below the rafters; their ceiling box sits on the nearest truss.
+  function trussZ(z) { return Math.max(-HL + 16, Math.min(HL - 16, Math.round((z + HL) / 16) * 16 - HL)); }
+  function hangOf(g) { return (g.userData.params && g.userData.params.h) || 102; }
+  function roofState(g, x, z) {
+    var isL = g.userData.dev === 'light';
+    var bz = isL ? Math.max(z - 40, Math.min(z + 40, trussZ(z))) : trussZ(z);
+    return { x: x, z: z, y: hangOf(g), r: 0, bz: bz, top: roofSlope(x, bz, bz).y };
+  }
+  function roofBox(g, st) {
+    if (g.userData.dev === 'light') return { x0: st.x - 3, x1: st.x + 3, y0: st.y - 2, y1: st.y, z0: st.z - 48, z1: st.z + 48 };
+    return { x0: st.x - 1.6, x1: st.x + 1.6, y0: st.y - 4.6, y1: st.top, z0: st.z - 1.6, z1: st.z + 1.6 };
+  }
   function isRoof(g) { return g.userData.mount === 'roof'; }
   function isDev(g) { return !!g.userData.dev; }
   var seq = 0;
@@ -1724,14 +1783,15 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     g.userData.c = c && circuitById(c) ? c : autoCircuit(kind, w);
     return g;
   }
-  function addLight(x, z, c, id) {
-    id = id || nextId('light'); bumpSeq(id);
-    var g = machines.makeLight(id);
+  function addRoof(kind, x, z, c, id, p) {
+    id = id || nextId(kind); bumpSeq(id);
+    var g = kind === 'drop' ? machines.makeDrop(id, p ? JSON.parse(JSON.stringify(p)) : null) : machines.makeLight(id, p ? JSON.parse(JSON.stringify(p)) : null);
+    apply(g, { x: x, z: z });
     measure(g);
     addSprite(g, [40, 10], [0, 10, 0]);
     items.push(g); byId[id] = g; mGroup.add(g);
-    apply(g, lightState(x, z));
-    g.userData.c = c && circuitById(c) ? c : autoCircuit('light');
+    apply(g, { x: x, z: z });
+    g.userData.c = c && circuitById(c) ? c : autoCircuit(kind);
     return g;
   }
   function removeItem(g) { mGroup.remove(g); items.splice(items.indexOf(g), 1); delete byId[g.userData.machine.id]; }
@@ -1746,6 +1806,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }
   function autoCircuit(kind, wall) {
     if (kind === '220') return newCircuit('240V receptacle', 240, 20);
+    if (kind === 'drop') return newCircuit('240V ceiling drop', 240, 20);
     if (kind === 'sp' || kind === '3w' || kind === 'light') {
       var lit = items.filter(function (g) { return g.userData.dev === 'light' && g.userData.c; })[0];
       if (lit) return lit.userData.c;
@@ -1763,10 +1824,10 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     var out = {};
     items.forEach(function (g) {
       var id = g.userData.machine.id, s = stateOf(g), e;
-      if (isRoof(g)) e = { k: 'light', x: +s.x.toFixed(3), z: +s.z.toFixed(3) };
+      if (isRoof(g)) e = { k: g.userData.dev, x: +s.x.toFixed(3), z: +s.z.toFixed(3) };
       else if (isWall(g)) e = { w: s.w, a: +s.a.toFixed(3), y: +s.y.toFixed(3) };
       else e = { x: +s.x.toFixed(3), z: +s.z.toFixed(3), r: s.r };
-      if (g.userData.dev && g.userData.dev !== 'light') e.k = g.userData.dev;
+      if (g.userData.dev) e.k = g.userData.dev;
       if (g.userData.c) e.c = g.userData.c;
       if (g.userData.params) e.p = JSON.parse(JSON.stringify(g.userData.params));
       out[id] = e;
@@ -1793,7 +1854,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     var keys = saved ? Object.keys(saved).filter(function (k) { return saved[k] && saved[k].k; }) : [];
     if (keys.length) keys.forEach(function (k) {
       var e = saved[k];
-      if (e.k === 'light' && isFinite(e.x) && isFinite(e.z)) addLight(+e.x, +e.z, e.c, k);
+      if ((e.k === 'light' || e.k === 'drop') && isFinite(e.x) && isFinite(e.z)) addRoof(e.k, +e.x, +e.z, e.c, k, e.p);
       else if (DEVK[e.k] && WALLS[e.w]) addDevice(e.k, e.w, +e.a, +e.y, e.c, k);
     });
     var hasSwitchOrLight = keys.some(function (k) { return saved[k].k === 'sp' || saved[k].k === '3w' || saved[k].k === 'light'; });
@@ -1802,7 +1863,9 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     } else if (!hasSwitchOrLight) {                       // older layout with outlets only: add default switches
       DEF_DEVICES.forEach(function (d) { if (d[0] === 'sp' || d[0] === '3w') addDevice(d[0], d[1], d[2], d[3], d[4]); });
     }
-    if (!hasSwitchOrLight) DEF_LIGHTS.forEach(function (l) { addLight(l[0], l[1], l[2]); });
+    if (!hasSwitchOrLight) DEF_LIGHTS.forEach(function (l) { addRoof('light', l[0], l[1], l[2]); });
+    if (!keys.some(function (k) { return saved[k].k === 'drop'; }) && !keys.some(function (k) { return saved[k].k === 'light'; }))
+      DEF_DROPS.forEach(function (d) { addRoof('drop', d[0], d[1], d[2]); });
     save();
     select(selected && items.indexOf(selected) >= 0 ? selected : null);
     if (wiringOn) buildWiring();
@@ -1907,9 +1970,10 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     selBox.box.min.set(b.x0, b.y0, b.z0); selBox.box.max.set(b.x1, b.y1, b.z1);
     var rows;
     if (isRoof(selected)) {
-      rows = [['On', selected.position.x > 0 ? 'Two-window side of the roof' : 'Door side of the roof', true],
-              ['Height (mount)', selected.position.y], ['Double-door end', b.z0 + HL], ['Back end', HL - b.z1],
-              ['From the ridge', Math.abs(selected.position.x)]];
+      var rs0 = stateOf(selected);
+      rows = [['Hangs from', selected.position.x > 0 ? 'Two-window side rafters' : 'Door side rafters', true],
+              ['Height', rs0.y], ['Chain / cord', rs0.top - rs0.y], ['Double-door end', b.z0 + HL], ['Back end', HL - b.z1],
+              ['Entry-door wall', b.x0 + HW], ['Two-window wall', HW - b.x1]];
     } else if (isWall(selected)) {
       var w = selected.userData.wall, W = WALLS[w], ax = W.ax;
       var ends = w === 'left' ? ['Double-door end', 'Back end'] : w === 'right' ? ['Double-door end', 'Back end']
@@ -1921,7 +1985,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     document.getElementById('sel-clear-h').textContent = isWall(selected) || isRoof(selected) ? 'Position' : 'Clearance to walls';
     document.getElementById('sel-clear').innerHTML = rows.map(function (r) {
       if (r[2]) return '<dt>' + r[0] + '</dt><dd>' + esc(r[1]) + '</dd>';
-      var tight = r[1] < 0.25 && !/edge|Height|ridge/.test(r[0]);
+      var tight = r[1] < 0.25 && !/edge|Height|Chain/.test(r[0]);
       return '<dt>' + r[0] + '</dt><dd' + (tight ? ' class="tight"' : '') + '>' + (tight ? 'Against it' : ftin(r[1])) + '</dd>';
     }).join('');
   }
@@ -2002,7 +2066,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   function renderCircuit(g) {
     var box = document.getElementById('sel-circuit');
     if (!isDev(g)) { box.hidden = true; box.innerHTML = ''; return; }
-    var need = g.userData.dev === '220' ? 240 : 120;
+    var need = g.userData.dev === '220' || g.userData.dev === 'drop' ? 240 : 120;
     slotCache = assignSlots();
     var opts = circuits.filter(function (c) { return c.v === need; }).map(function (c) {
       return '<option value="' + c.id + '"' + (c.id === g.userData.c ? ' selected' : '') + '>' + esc(slotOf(c.id) + ' · ' + c.name) + '</option>';
@@ -2019,9 +2083,9 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   function addNew(kind) {
     var before = snap(), g, spot;
     var dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-    if (kind === 'light') {
-      g = addLight(dir.x >= 0 ? 60 : -60, 0);
-      spot = findFree(g, lightState(g.position.x, 0), obstacles(g), 140);
+    if (kind === 'light' || kind === 'drop') {
+      g = addRoof(kind, dir.x >= 0 ? 40 : -40, 0);
+      spot = findFree(g, roofState(g, g.position.x, 0), obstacles(g), 140);
       if (!spot) { removeItem(g); toast('No free spot for another light.', true); return; }
     } else {
       // start on the wall the camera faces, at the usual height, in the nearest free stud bay
@@ -2053,7 +2117,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   function circuitVA(c) {
     if (c.va) return c.va;
     var va = 0;
-    devicesOn(c.id).forEach(function (g) { var k = g.userData.dev; va += k === 'light' ? VA_LIGHT : (k === '110' || k === '220') ? VA_RECEP : 0; });
+    devicesOn(c.id).forEach(function (g) { var k = g.userData.dev; va += k === 'light' ? VA_LIGHT : (k === '110' || k === '220' || k === 'drop') ? VA_RECEP : 0; });
     return va;
   }
   // breaker slots: 2-pole breakers first, then 1-pole on the lighter leg
@@ -2078,111 +2142,112 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   var slotCache = {};
   function slotOf(cid) { return (slotCache[cid] && slotCache[cid].label) || '?'; }
 
-  /* ---- routing around the perimeter, inside the stud cavity ---- */
-  var PL = SZ.L, PW = SZ.W, PER = 2 * (PL + PW);
+  /* ---- routing: the "up and over" method used for open-stud shops ----
+     Horizontal runs are stapled along the face of the top plate (~86" up, out of reach of hanging tools),
+     with vertical drops down the side of a stud to each box. Ceiling boxes are fed up the rafter from the
+     top plate; boxes in the same row are linked along a running board; crossing to the other roof slope
+     follows a truss (rafter, collar tie, rafter). */
+  var PL = SZ.L, PW = SZ.W, PER = 2 * (PL + PW), PLATE = 86.5, FACE = -0.6, BAY = 1.0;
   function tOf(w, a) { return w === 'left' ? a + HL : w === 'back' ? PL + a + HW : w === 'right' ? PL + PW + HL - a : 2 * PL + PW + HW - a; }
-  function pt(t, y) {
+  // point on the perimeter at height y; off > 0 is into the stud bay, off < 0 is on the room side of the framing
+  function pt(t, y, off) {
+    off = off === undefined ? BAY : off;
     t = ((t % PER) + PER) % PER;
-    if (t <= PL) return [-HW - 1.75, y, t - HL];
-    if (t <= PL + PW) return [t - PL - HW, y, HL + 1.75];
-    if (t <= 2 * PL + PW) return [HW + 1.75, y, HL - (t - PL - PW)];
-    return [HW - (t - 2 * PL - PW), y, -HL - 1.75];
+    if (t <= PL) return [-HW - off, y, t - HL];
+    if (t <= PL + PW) return [t - PL - HW, y, HL + off];
+    if (t <= 2 * PL + PW) return [HW + off, y, HL - (t - PL - PW)];
+    return [HW - (t - 2 * PL - PW), y, -HL - off];
   }
   var CORNERS = [0, PL, PL + PW, 2 * PL + PW];
-  var DOORS = [[272, 308], [2 * PL + PW + HW - 36, 2 * PL + PW + HW + 36]];
   function pdist(t1, t2) { var d = ((t2 - t1) % PER + PER) % PER; return Math.min(d, PER - d); }
-  // points for a horizontal run at height y from t1 to t2 (shorter way round), hopping over door headers
-  function run(t1, t2, y) {
-    var fwd = ((t2 - t1) % PER + PER) % PER, dir = fwd <= PER / 2 ? 1 : -1, len = dir > 0 ? fwd : PER - fwd;
+  function run(t1, t2, y, off) {
+    var fwd = ((t2 - t1) % PER + PER) % PER, dir = fwd <= PER / 2 ? 1 : -1, len0 = dir > 0 ? fwd : PER - fwd;
     var ev = [];
-    function along(t) { var d = dir > 0 ? ((t - t1) % PER + PER) % PER : ((t1 - t) % PER + PER) % PER; return d; }
-    CORNERS.forEach(function (c) { var d = along(c); if (d > 0.01 && d < len - 0.01) ev.push({ d: d, t: c, k: 'c' }); });
-    if (y < 84) DOORS.forEach(function (o) {
-      var a = along(o[0] - 3), b = along(o[1] + 3), d0 = Math.min(a, b), d1 = Math.max(a, b);
-      if (d1 - d0 < 60 && d0 > 0 && d1 < len) { ev.push({ d: d0, t: dir > 0 ? o[0] - 3 : o[1] + 3, k: 'up' }); ev.push({ d: d1, t: dir > 0 ? o[1] + 3 : o[0] - 3, k: 'down' }); }
+    CORNERS.forEach(function (c) {
+      var d = dir > 0 ? ((c - t1) % PER + PER) % PER : ((t1 - c) % PER + PER) % PER;
+      if (d > 0.01 && d < len0 - 0.01) ev.push({ d: d, t: c });
     });
     ev.sort(function (a, b) { return a.d - b.d; });
-    var pts = [pt(t1, y)], cy = y;
-    ev.forEach(function (e) {
-      if (e.k === 'c') pts.push(pt(e.t, cy));
-      else if (e.k === 'up') { pts.push(pt(e.t, cy)); cy = RUN_HI; pts.push(pt(e.t, cy)); }
-      else { pts.push(pt(e.t, cy)); cy = y; pts.push(pt(e.t, cy)); }
-    });
-    pts.push(pt(t2, cy));
+    var pts = [pt(t1, y, off)];
+    ev.forEach(function (e) { pts.push(pt(e.t, y, off)); });
+    pts.push(pt(t2, y, off));
     return pts;
   }
+  function len(pts) { var L = 0; for (var i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1], pts[i][2] - pts[i - 1][2]); return L; }
   function anchor(g) {
     var b = boxOf(g);
-    if (isRoof(g)) return { roof: true, x: g.position.x, y: g.position.y, z0: b.z0 + 2, z1: b.z1 - 2 };
+    if (isRoof(g)) { var rs = stateOf(g); return { roof: true, x: rs.x, z: rs.bz, top: rs.top - 1, side: rs.x > 0 ? 1 : -1 }; }
     var u = g.userData;
-    return { t: tOf(u.wall, u.a), y: (b.y0 + b.y1) / 2, y0: b.y0, y1: b.y1 };
+    return { t: tOf(u.wall, u.a), top: b.y1, y0: b.y0 };
   }
-  function len(pts) { var L = 0; for (var i = 1; i < pts.length; i++) L += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1], pts[i][2] - pts[i - 1][2]); return L; }
-
-  function routeCircuit(c, panelA) {
-    var segs = [], devs = devicesOn(c.id), wires = c.v === 240 ? 2 : 2;
-    var lights = devs.filter(function (g) { return g.userData.dev === 'light'; });
-    var sw3 = devs.filter(function (g) { return g.userData.dev === '3w'; }), sw1 = devs.filter(function (g) { return g.userData.dev === 'sp'; });
-    var recs = devs.filter(function (g) { return g.userData.dev === '110' || g.userData.dev === '220'; });
-    function seg(pts, cond, note) { segs.push({ pts: pts, cond: cond || wires, note: note || '' }); }
-    function wallHop(from, to, h) {                     // from/to: anchors on walls
-      var p = [pt(from.t, from.y)];
-      p = p.concat(run(from.t, to.t, h));
-      p.push(pt(to.t, to.y));
+  // from the top plate on the wall under a ceiling box, up the rafter to the box
+  function rafterUp(an) {
+    var wx = an.side * (HW + FACE), p = [[wx, PLATE, an.z]];
+    var dormer = an.side < 0 && an.z >= SZ.ZD0 && an.z <= SZ.ZD1;
+    if (dormer) p.push([wx, SZ.DORMER_TOP - 1, an.z]);
+    p.push([an.side * (HW - 3.5), roofSlope(an.side * (HW - 3.5), an.z, an.z).y - 1, an.z]);
+    p.push([an.x, an.top, an.z]);
+    return p;
+  }
+  function footT(an) { return tOf(an.side > 0 ? 'right' : 'left', an.z); }
+  // one cable between two boxes, following the framing
+  function hop(A, Bn) {
+    var p;
+    if (!A.roof && !Bn.roof) {
+      p = [pt(A.t, A.top), pt(A.t, PLATE), pt(A.t, PLATE, FACE)];
+      p = p.concat(run(A.t, Bn.t, PLATE, FACE));
+      p.push(pt(Bn.t, PLATE)); p.push(pt(Bn.t, Bn.top));
       return p;
     }
-    function chain(start, list, h) {
-      var cur = start, left = list.slice(), order = [];
-      while (left.length) {
-        left.sort(function (a, b) { return pdist(cur.t, anchor(a).t) - pdist(cur.t, anchor(b).t); });
-        var nx = left.shift(), an = anchor(nx);
-        seg(wallHop(cur, an, h)); order.push(nx); cur = an;
-      }
-      return order;
+    if (!A.roof && Bn.roof) {
+      p = [pt(A.t, A.top), pt(A.t, PLATE), pt(A.t, PLATE, FACE)].concat(run(A.t, footT(Bn), PLATE, FACE));
+      return p.concat(rafterUp(Bn));
     }
-    var feedLo = { t: panelA.t, y: panelA.y0 }, feedHi = { t: panelA.t, y: panelA.y1 };
-    var isLighting = lights.length || sw3.length || sw1.length;
-    if (!isLighting) { chain(feedLo, recs, RUN_LO); return segs; }
-    // lighting: panel -> first switch box (always hot), travelers between 3-ways, switch leg to lights
-    var switches = sw3.concat(sw1);
-    var first = null, ctrl = null, extra = sw1.slice();
+    if (A.roof && !Bn.roof) return hop(Bn, A).reverse();
+    if (A.side === Bn.side) return [[A.x, A.top, A.z], [Bn.x, Bn.top, Bn.z]];      // along a running board
+    var cx = 26, cy = 141 - 1;                                                       // over the collar tie
+    return [[A.x, A.top, A.z], [A.x, A.top, Bn.z], [A.side * cx, cy, Bn.z], [-A.side * cx, cy, Bn.z], [Bn.x, Bn.top, Bn.z]];
+  }
+
+  function routeCircuit(c, panelA) {
+    var segs = [], devs = devicesOn(c.id);
+    var lights = devs.filter(function (g) { return g.userData.dev === 'light'; });
+    var sw3 = devs.filter(function (g) { return g.userData.dev === '3w'; }), sw1 = devs.filter(function (g) { return g.userData.dev === 'sp'; });
+    var recs = devs.filter(function (g) { var k = g.userData.dev; return k === '110' || k === '220' || k === 'drop'; });
+    function seg(pts, cond, note) { segs.push({ pts: pts, cond: cond || 2, note: note || '' }); }
+    // greedy chain: each next box is the one with the shortest cable from the current box
+    function chain(start, list) {
+      var cur = start, left = list.slice();
+      while (left.length) {
+        var best = 0, bl = 1e9;
+        left.forEach(function (g, i) { var L = len(hop(cur, anchor(g))); if (L < bl) { bl = L; best = i; } });
+        var nx = left.splice(best, 1)[0], an = anchor(nx);
+        seg(hop(cur, an)); cur = an;
+      }
+    }
+    var feed = { t: panelA.t, top: panelA.top };
+    if (!lights.length && !sw3.length && !sw1.length) { chain(feed, recs); return segs; }
+    var switches = sw3.concat(sw1), first = null, ctrl = null, extra = [];
     if (switches.length) {
-      switches.sort(function (a, b) { return pdist(panelA.t, anchor(a).t) - pdist(panelA.t, anchor(b).t); });
+      switches.sort(function (a, b) { return len(hop(feed, anchor(a))) - len(hop(feed, anchor(b))); });
       first = switches[0];
-      seg(wallHop(feedHi, anchor(first), RUN_HI));
+      seg(hop(feed, anchor(first)));
       if (sw3.length >= 2) {
-        var A = sw3[0] === first ? sw3[0] : (sw3.indexOf(first) >= 0 ? first : sw3[0]), Bsw = sw3.filter(function (g) { return g !== A; })[0];
-        if (A !== first) seg(wallHop(anchor(first), anchor(A), RUN_HI));
-        seg(wallHop(anchor(A), anchor(Bsw), RUN_HI), 3, 'travelers');
+        var A = sw3.indexOf(first) >= 0 ? first : sw3[0], Bsw = sw3.filter(function (g) { return g !== A; })[0];
+        if (A !== first) seg(hop(anchor(first), anchor(A)));
+        seg(hop(anchor(A), anchor(Bsw)), 3, 'travelers');
         ctrl = Bsw;
       } else ctrl = sw1.length ? sw1[0] : sw3[0];
       extra = sw1.filter(function (g) { return g !== ctrl; });
-      extra.forEach(function (g) { if (g !== first) seg(wallHop(anchor(first), anchor(g), RUN_HI)); });
+      extra.forEach(function (g) { if (g !== first) seg(hop(anchor(first), anchor(g))); });
     }
-    // lights: from the controlling switch up to the plate, along to the wall under the nearest light, up the rafter
-    if (lights.length) {
-      var src = ctrl ? anchor(ctrl) : feedHi, left = lights.slice(), curPt = null;
-      left.sort(function (a, b) {
-        var ea = anchor(a), eb = anchor(b);
-        return pdist(src.t, tOf(ea.x > 0 ? 'right' : 'left', ea.z0)) - pdist(src.t, tOf(eb.x > 0 ? 'right' : 'left', eb.z0));
-      });
-      var l0 = left.shift(), a0 = anchor(l0), wz = a0.z0, wt = tOf(a0.x > 0 ? 'right' : 'left', wz);
-      var p = [pt(src.t, src.y)].concat(run(src.t, wt, RUN_HI));
-      var wx = (a0.x > 0 ? 1 : -1) * (HW - 1);
-      p.push([wx, roofSlope(wx, wz, wz).y - 1, wz]); p.push([a0.x, a0.y - 1, wz]);
-      seg(p); curPt = { x: a0.x, y: a0.y - 1, z: a0.z1, side: a0.x > 0 };
-      while (left.length) {
-        left.sort(function (a, b) { return Math.hypot(anchor(a).x - curPt.x, anchor(a).z0 - curPt.z) - Math.hypot(anchor(b).x - curPt.x, anchor(b).z0 - curPt.z); });
-        var nx = left.shift(), an = anchor(nx), near = Math.abs(an.z0 - curPt.z) < Math.abs(an.z1 - curPt.z) ? an.z0 : an.z1;
-        var pts = [[curPt.x, curPt.y, curPt.z]];
-        if ((an.x > 0) !== curPt.side) pts.push([0, SZ.RIDGE - 4, (curPt.z + near) / 2]);
-        pts.push([an.x, an.y - 1, near]);
-        seg(pts);
-        curPt = { x: an.x, y: an.y - 1, z: near === an.z0 ? an.z1 : an.z0, side: an.x > 0 };
-      }
-    }
-    // receptacles on a lighting circuit: switched by an extra single-pole if there is one, else always hot from the first box
-    if (recs.length) chain(extra.length ? anchor(extra[0]) : first ? anchor(first) : feedLo, recs, extra.length || first ? RUN_HI : RUN_LO);
+    // switch leg to each roof slope's row of ceiling receptacles
+    var src = ctrl ? anchor(ctrl) : feed;
+    [1, -1].forEach(function (side) {
+      var row = lights.filter(function (g) { return (g.position.x > 0 ? 1 : -1) === side; });
+      if (row.length) chain(src, row);
+    });
+    if (recs.length) chain(extra.length ? anchor(extra[0]) : first ? anchor(first) : feed, recs);
     return segs;
   }
 
@@ -2198,10 +2263,10 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
         plan.cable[key] = (plan.cable[key] || 0) + L + 1;
       });
       var count = {}; devs.forEach(function (d) { count[d.userData.dev] = (count[d.userData.dev] || 0) + 1; });
-      var hasRec = !!(count['110'] || count['220']);
+      var hasRec = !!(count['110'] || count['220'] || count.light || count.drop);   // lights plug into ceiling receptacles
       plan.circuits.push({ c: c, color: COLORS[i % COLORS.length], segs: segs, ft: Math.ceil(ft + devs.length + 2), gauge: g,
         count: count, gfci: hasRec, va: circuitVA(c), slot: slotCache[c.id] });
-      if (c.v === 120 && devs.some(function (d) { return d.userData.dev === '220'; })) plan.warn.push(c.name + ': has a 220V outlet on a 120V circuit.');
+      if (c.v === 120 && devs.some(function (d) { return d.userData.dev === '220' || d.userData.dev === 'drop'; })) plan.warn.push(c.name + ': has a 240V device on a 120V circuit.');
       if (!devs.length && c.va === 0) plan.warn.push(c.name + ': nothing is assigned to it yet.');
     });
     // peak estimate: one 240V machine at a time + dedicated 120V loads + lighting + 1500 VA of hand tools
@@ -2263,7 +2328,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   /* ---- schematic drawer ---- */
   function ampsBar(v) { var pct = Math.min(100, v / FEED_A * 100); return '<span class="bar2"><i style="width:' + pct.toFixed(0) + '%"' + (v > FEED_A * 0.8 ? ' class="hot"' : '') + '></i></span>'; }
   function devSummary(count) {
-    var names = { '110': '110V outlet', '220': '220V outlet', 'sp': 'switch', '3w': '3-way', 'light': 'light' }, out = [];
+    var names = { '110': '110V outlet', '220': '220V outlet', 'drop': 'ceiling drop', 'sp': 'switch', '3w': '3-way', 'light': 'light' }, out = [];
     Object.keys(names).forEach(function (k) { if (count[k]) out.push(count[k] + ' ' + names[k] + (count[k] > 1 ? (k === '3w' ? 's' : k === 'sp' ? 'es' : 's') : '')); });
     return out.join(', ') || '—';
   }
@@ -2292,7 +2357,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       var g = k.split('/')[0], cond = k.split('/')[1];
       rows.push([g + '/' + cond + ' NM-B with ground' + (k.indexOf('travelers') >= 0 ? ', 3-way travelers' : ''), Math.ceil(plan.cable[k] / 25) * 25 + ' ft']);
     });
-    var cnt = { '110': 0, '220': 0, 'sp': 0, '3w': 0, 'light': 0 };
+    var cnt = { '110': 0, '220': 0, 'sp': 0, '3w': 0, 'light': 0, 'drop': 0 };
     items.forEach(function (g) { if (isDev(g)) cnt[g.userData.dev]++; });
     var b1 = {}, b2 = {};
     plan.circuits.forEach(function (p) {
@@ -2305,7 +2370,15 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (cnt['3w']) rows.push(['3-way switches', cnt['3w']]);
     rows.push(['1-gang boxes', cnt['110'] + cnt.sp + cnt['3w']]);
     if (cnt['220']) rows.push(['4″ square boxes with 1-device covers', cnt['220']]);
-    if (cnt.light) rows.push(['8′ LED strip fixtures', cnt.light]);
+    if (cnt.light) {
+      rows.push(['8′ LED shop lights with cord and chains', cnt.light]);
+      rows.push(['Switched ceiling receptacles for the lights (5-15R) in 4″ boxes on rafters', cnt.light]);
+      rows.push(['1×4 running boards along the rafters', '2']);
+    }
+    if (cnt.drop) {
+      rows.push(['240V twist-lock receptacles, NEMA L6-20R, in 4″ ceiling boxes', cnt.drop]);
+      rows.push(['Strain-relief cord grips and 12/3 SOOW drop cords with L6-20P plugs', cnt.drop]);
+    }
     Object.keys(b1).forEach(function (k) { rows.push(['1-pole breaker ' + k, b1[k]]); });
     Object.keys(b2).forEach(function (k) { rows.push(['2-pole breaker ' + k, b2[k]]); });
     rows.push(['Panel: 100A main breaker, 24 spaces, separate neutral and ground bars', 1]);
@@ -2315,11 +2388,14 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   var NOTES = [
     'Planning drawing only. Not for permit or construction.',
     'Massachusetts: permits issued after April 24, 2026 fall under the 2026 Massachusetts Electrical Code (the 2026 NEC with state amendments). Confirm the details with the Lunenburg wiring inspector.',
-    'GFCI: every receptacle circuit is shown with GFCI breakers, 120V and 240V. Recent NEC editions require GFCI on receptacles in accessory buildings. Motors can nuisance-trip some GFCIs; ask the inspector.',
+    'Routing follows the "up and over" method common in open-stud shops: horizontal runs stapled along the face of the top plate (about 7′ up), vertical drops down the side of a stud to each box. Many inspectors treat horizontal cable through open studs low on the wall as subject to damage. Some may still ask for MC cable or EMT conduit on exposed walls, or for the walls to be sheathed; ask before rough-in.',
+    'Lights: plug-in LED shop lights hang on chains, each from a switched ceiling receptacle on the rafter above it. Ceiling boxes in a row are linked along a running board; the run to the far slope follows a truss over the collar tie.',
+    'Table saw: it sits mid-floor, so it is fed from a 240V twist-lock ceiling drop (NEMA L6-20) with a strain-relief grip, which keeps the cord off the floor. The saw needs a matching plug or a short drop cord.',
+    'GFCI: every circuit with a receptacle is shown on a GFCI breaker, 120V and 240V, including the ceiling receptacles for the lights. Recent NEC editions require GFCI on receptacles in accessory buildings. Motors can nuisance-trip some GFCIs; ask the inspector.',
     'Outbuilding feeder: 4 wires (2 hots, neutral, ground). Keep neutral and ground separate in the shed panel, and drive a grounding electrode (ground rods) at the shed. The shed panel\'s main breaker serves as the building disconnect.',
     'The 50A feeder needs about 6 AWG copper. The existing wire is unverified, so check its size and type before relying on 50A.',
     'Breaker sizes for the saw, planer, shaper and dust collector come from their nameplate amps; confirm each manual\'s recommended circuit. Size the mini split from its nameplate MCA/MOP; many need a local disconnect or are hardwired.',
-    'Cable is routed through holes bored in the studs: receptacle runs at about 16″ and switch and light runs near the top plate. Keep holes 1¼″ from the stud face or add nail plates. Exposed cable on open framing may need protection where it can be damaged.',
+    'Keep bored holes 1¼″ from the stud face or add nail plates. Cables entering boxes are stapled within 12″ of the box.',
     'In Massachusetts, electrical permits are generally pulled by a licensed electrician.'
   ];
   function renderDrawer() {
@@ -2415,6 +2491,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   document.getElementById('addsp').addEventListener('click', function () { addNew('sp'); });
   document.getElementById('add3w').addEventListener('click', function () { addNew('3w'); });
   document.getElementById('addlight').addEventListener('click', function () { addNew('light'); });
+  document.getElementById('adddrop').addEventListener('click', function () { addNew('drop'); });
   document.addEventListener('click', function (e) {
     var more = document.getElementById('more');
     if (more.open && !more.contains(e.target)) more.open = false;
@@ -2512,10 +2589,12 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (isRoof(g)) {
       if (!ray.ray.intersectPlane(drag.plane, hitP)) return;
       var tx = Math.round(hitP.x + drag.ox), tz = Math.round(hitP.z + drag.oz - 48 + HL) - HL + 48;
-      if (Math.abs(tx) < 12) tx = (tx < 0 || (tx === 0 && g.position.x < 0)) ? -12 : 12;
-      tx = Math.max(-88, Math.min(88, tx)); tz = Math.max(-HL + 48, Math.min(HL - 48, tz));
+      var half = g.userData.dev === 'light' ? 48 : 2;
+      if (g.userData.dev !== 'light') tz = Math.round(hitP.z + drag.oz);
+      if (Math.abs(tx) < 6) tx = (tx < 0 || (tx === 0 && g.position.x < 0)) ? -6 : 6;
+      tx = Math.max(-HW + 6, Math.min(HW - 6, tx)); tz = Math.max(-HL + half, Math.min(HL - half, tz));
       var cur = stateOf(g);
-      if (!blocked(g, { x: tx, z: tz }, drag.o)) apply(g, { x: tx, z: tz });
+      if (!blocked(g, { x: tx, z: tz }, drag.o)) apply(g, { x: tx, z: tz });                 // jump past when free
       else {
         // step 1" at a time toward the target, so a light stops flush against its neighbor
         var cx = cur.x, cz = cur.z, sz = Math.sign(tz - cz), sx = Math.sign(tx - cx);
@@ -2529,7 +2608,8 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (!isWall(g)) {
       if (!ray.ray.intersectPlane(floorPlane, hitP)) return;
       var t = snapFloor(g, hitP.x + drag.ox, hitP.z + drag.oz, g.userData.r);   // 1" grid
-      apply(g, slideFloor(g, t.x, t.z, drag.o));                                  // flush stop, never overlaps
+      // free spot under the pointer: jump there, even past other pieces; otherwise stop flush against the blocker
+      apply(g, blocked(g, t, drag.o) ? slideFloor(g, t.x, t.z, drag.o) : t);
     } else {
       var st = stateOf(g), h = wallHit(), ta, ty;
       if (h && h.w !== st.w) {                                                   // carried onto another wall
@@ -2548,7 +2628,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
         });
       } else {
         var sn = snapWall(g, st.w, ta, ty);
-        apply(g, slideWall(g, sn.a, sn.y, drag.o));
+        apply(g, blocked(g, sn, drag.o) ? slideWall(g, sn.a, sn.y, drag.o) : sn);
       }
     }
     updatePanel();
