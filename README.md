@@ -54,3 +54,27 @@ npm run dist   # build the exes into dist/
 - **Save** writes the current layout, including desk sizes, to a `.json` file. **Open** loads one back.
 - **More → Back to floor-plan layout** returns to the default arrangement. More also has the display toggles.
 - The last layout you used is also remembered between sessions.
+
+## Run it as a web app (Docker)
+
+Every push builds a Docker image at `ghcr.io/mscottwhit12-hub/crack_shack`. The web version keeps **one shared layout** on the server. Every browser that opens it sees the same layout, and edits from one device show up on the others within a few seconds. Ctrl+Z undoes a change that came in from another device.
+
+Add this to `docker-compose.yml`:
+
+```yaml
+  crack-shack:
+    image: ghcr.io/mscottwhit12-hub/crack_shack:latest
+    container_name: crack-shack
+    ports:
+      - "8088:8080"
+    volumes:
+      - ./crack-shack-data:/data
+    restart: unless-stopped
+```
+
+Then start it with `docker compose up -d crack-shack` and open `http://<server>:8088`. That works from the LAN and from the tailnet.
+
+- The layout is stored in `./crack-shack-data/layout.json`. Back up that file to keep the layout safe.
+- The container runs as uid 1000. If the folder was created by root, run `sudo chown 1000:1000 crack-shack-data`.
+- File > Save and Load still work for keeping extra layouts.
+- There is no login. Anyone who can reach the port can edit, so expose it only on the LAN or tailnet.

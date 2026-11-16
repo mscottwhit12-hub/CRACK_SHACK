@@ -1835,7 +1835,62 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     out.__circuits = JSON.parse(JSON.stringify(circuits));
     return out;
   }
-  function save() { try { localStorage.setItem(KEY, JSON.stringify(collect())); } catch (e) {} }
+  function save() {
+    var data = collect();
+    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch (e) {}
+    if (sync.on && !sync.applying) pushRemote(data);
+  }
+
+  /* ---- shared layout when served from the Crack Shack server (Docker). The exe and the web artifact skip this. ---- */
+  var sync = { on: false, applying: false, rev: 0, timer: null, inflight: false, again: null, warned: false,
+               client: Math.random().toString(36).slice(2, 10) };
+  function pushRemote(data) {
+    sync.again = data;
+    clearTimeout(sync.timer);
+    sync.timer = setTimeout(flushRemote, 350);
+  }
+  function flushRemote() {
+    if (sync.inflight || !sync.again) return;
+    var data = sync.again; sync.again = null; sync.inflight = true;
+    fetch('api/layout', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client: sync.client, layout: data }) })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function (j) { sync.rev = j.rev; if (sync.warned) { sync.warned = false; toast('Back online. Layout saved to the shop server.'); } })
+      .catch(function () {
+        if (!sync.warned) { sync.warned = true; toast('Can\'t reach the shop server. Changes are kept in this browser and will sync when it\'s back.', true); }
+        if (!sync.again) sync.again = data;
+      })
+      .then(function () { sync.inflight = false; if (sync.again) sync.timer = setTimeout(flushRemote, sync.warned ? 4000 : 50); });
+  }
+  function applyRemote(doc, note) {
+    var before = snap();
+    sync.applying = true;
+    try { applyLayout(doc.layout); } finally { sync.applying = false; }
+    sync.rev = doc.rev;
+    if (before !== snap()) { undoStack.push(before); redoStack.length = 0; syncHistory(); }
+    if (note) toast(note);
+  }
+  function pollRemote() {
+    if (!sync.on || drag || sync.inflight || sync.again) return;
+    fetch('api/layout', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (doc) {
+      if (!doc || !doc.layout || doc.rev === sync.rev || drag || sync.inflight || sync.again) return;
+      if (doc.by === sync.client) { sync.rev = doc.rev; return; }
+      applyRemote(doc, 'Updated from another device. Ctrl+Z to undo.');
+    }).catch(function () {});
+  }
+  function initSync() {
+    if (!/^https?:$/.test(location.protocol)) return;
+    fetch('api/health', { cache: 'no-store' }).then(function (r) { return r.ok ? r.json() : null; }).then(function (h) {
+      if (!h || !h.ok) return;
+      return fetch('api/layout', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (doc) {
+        sync.on = true;
+        if (doc && doc.layout) applyRemote(doc, null);
+        else pushRemote(collect());                       // first device to connect seeds the shared layout
+        setInterval(pollRemote, 4000);
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) pollRemote(); });
+        var b = document.querySelector('.brand'); if (b) b.title = 'Shared layout: synced with the shop server';
+      });
+    }).catch(function () {});
+  }
   // Set every piece from a layout; anything the layout doesn't mention goes to its default.
   function applyLayout(saved) {
     machines.forEach(function (g) {
@@ -2645,6 +2700,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
 
   setView('over');
   syncHistory();
+  initSync();
   updateLabels();
 
   (function loop() {
