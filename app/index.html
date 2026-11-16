@@ -95,6 +95,26 @@
     padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
     box-shadow: 0 6px 24px rgba(0,0,0,.12);
   }
+  .menu.lib { width: min(330px, calc(100vw - 32px)); right: -4px; left: auto; }
+  .menu.lib .toggles button { text-align: left; }
+  dialog#dlg {
+    border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink);
+    padding: 16px 18px; width: min(420px, calc(100vw - 32px)); box-shadow: 0 10px 40px rgba(0,0,0,.25);
+  }
+  dialog#dlg::backdrop { background: rgba(10, 16, 15, .35); }
+  #dlg h2 { margin: 0 0 4px; font-family: var(--font-display); font-weight: 600; font-size: 22px; text-transform: uppercase; letter-spacing: .02em; }
+  #dlg p { margin: 4px 0 12px; color: var(--muted); font-size: 14px; }
+  #dlg .row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  #dlg .row button, #dlg .foot button, #dlg li button { border: 1px solid var(--line); }
+  #dlg .row button.primary, #dlg .foot button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+  #dlg .foot { display: flex; justify-content: flex-end; gap: 8px; }
+  #dlg input { font: 500 15px var(--font-body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; width: 100%; margin-bottom: 10px; }
+  #dlg ul { list-style: none; margin: 0 0 12px; padding: 0; max-height: 280px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; }
+  #dlg li { display: flex; align-items: center; gap: 6px; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  #dlg li:last-child { border-bottom: 0; }
+  #dlg li .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer; }
+  #dlg li .when { color: var(--muted); font-size: 12px; white-space: nowrap; }
+  #dlg .empty { color: var(--muted); padding: 10px; font-size: 14px; }
   .menu h2 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
   .menu h2.est { color: var(--est); }
   .menu .toggles { display: flex; flex-wrap: wrap; gap: 4px; }
@@ -215,7 +235,7 @@
   <dl id="sel-clear"></dl>
   <div class="circ" id="sel-circuit" hidden></div>
   <div class="params" id="sel-params" hidden></div>
-  <div class="acts"><button type="button" id="sel-rot">Rotate 90° (R)</button><button type="button" id="sel-del" hidden>Delete outlet</button></div>
+  <div class="acts"><button type="button" id="sel-rot">Rotate 90° (R)</button><button type="button" id="sel-del">Delete</button></div>
   <p class="note" id="sel-note"></p>
 </section>
 
@@ -226,15 +246,24 @@
     <button type="button" data-view="plan" title="Top-down floor plan">Top</button>
     <button type="button" data-view="inside" title="Stand inside; click again to turn around">Inside</button>
   </div>
+  <div class="grp" role="group" aria-label="Show">
+    <button type="button" data-vis="elec" aria-pressed="false" title="Outlets, switches, floor boxes and the panel">Electrical</button>
+    <button type="button" data-vis="lights" aria-pressed="true" title="Strip lights and focus lights">Lights</button>
+    <button type="button" data-vis="wall" aria-pressed="true" title="TVs, boards, racks and other wall pieces">Wall items</button>
+  </div>
   <div class="grp"><button type="button" id="wiring" aria-pressed="false" title="Show circuits and the panel schedule">Wiring</button></div>
   <div class="grp" role="group" aria-label="Edit">
     <button type="button" class="icon" id="undo" title="Undo (Ctrl+Z)" aria-label="Undo">↶</button>
     <button type="button" class="icon" id="redo" title="Redo (Ctrl+Y)" aria-label="Redo">↷</button>
   </div>
   <div class="grp" role="group" aria-label="Layout file">
-    <button type="button" id="f-save" title="Save this layout to a file">Save</button>
-    <button type="button" id="f-open" title="Open a saved layout file">Open</button>
+    <button type="button" id="f-save" title="Save this layout">Save</button>
+    <button type="button" id="f-open" title="Open a saved layout">Open</button>
     <input type="file" id="layout-file" accept=".json,application/json" hidden>
+    <details class="more" id="lib">
+      <summary>Library</summary>
+      <div class="menu lib" id="lib-body"></div>
+    </details>
     <details class="more" id="more">
       <summary>More</summary>
       <div class="menu">
@@ -249,12 +278,6 @@
         </div>
         <h2>Layout</h2>
         <div class="toggles">
-          <button type="button" id="add110">+ 110V outlet</button>
-          <button type="button" id="add220">+ 220V outlet</button>
-          <button type="button" id="addsp">+ Switch</button>
-          <button type="button" id="add3w">+ 3-way switch</button>
-          <button type="button" id="addlight">+ 8′ light</button>
-          <button type="button" id="adddrop">+ 240V ceiling drop</button>
           <button type="button" id="f-default">Back to default layout</button>
         </div>
         <h2>Shed, measured</h2>
@@ -277,8 +300,9 @@
   <div class="wd-head"><h2>Wiring plan</h2><button type="button" id="wd-save">Save…</button><button type="button" class="x" id="wd-close" aria-label="Close wiring plan">×</button></div>
   <div id="wd-body"></div>
 </aside>
-<div class="hint">Drag to move (wall pieces slide on walls) · <kbd>R</kbd> rotate · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo · <kbd>Ctrl</kbd>+<kbd>Y</kbd> redo</div>
+<div class="hint">Click a piece to select it, then drag it to move · drag anywhere else to orbit · <kbd>R</kbd> rotate · <kbd>Del</kbd> delete · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</div>
 <div class="toast" id="toast" role="status" hidden></div>
+<dialog id="dlg" aria-labelledby="dlg-title"><div id="dlg-body"></div></dialog>
 
 <script src="vendor/three.min.js"></script>
 <script src="vendor/OrbitControls.js"></script>
@@ -619,18 +643,29 @@ function buildMachines(THREE) {
   var GREEN = 0x2f6e52, CREAM = 0xe6e0cc, IRON = 0x868b8d, DARK = 0x3a3f41, BLACK = 0x1e2022,
       DELTA = 0x86939a, WOOD = 0xd9b27c, WHITE = 0xf3f3ef, RED = 0xb8402e, MAROON = 0x7e2a2a, CLEAR = 0xd7e3e8;
 
-  var list = [];
+  // Each machine is a type that can be spawned any number of times. The default layout spawns one of each, with id = type.
+  var list = [], defs = {}, order = [];
+  function clone(v) { return v === undefined ? undefined : JSON.parse(JSON.stringify(v)); }
   function machine(id, label, model, dims, note, build, params) {
-    var g = new THREE.Group();
-    g.userData.machine = { id: id, label: label, model: model, dims: dims, note: note };
-    g.userData.params = params || null;
+    defs[id] = { label: label, model: model, dims: dims, note: note, build: build, params: params || null, ud: {} };
+    order.push(id);
+    list.push(spawn(id, id));
+  }
+  function spawn(type, id) {
+    var d = defs[type], g = new THREE.Group();
+    g.userData.machine = { id: id, type: type, label: d.label, model: d.model, dims: d.dims, note: d.note };
+    g.userData.params = d.params ? clone(d.params) : null;
     g.userData.rebuild = function () {
       for (var i = g.children.length - 1; i >= 0; i--) if (!g.children[i].isSprite) g.remove(g.children[i]);
-      build(g, g.userData.params);
+      d.build(g, g.userData.params);
     };
-    build(g, g.userData.params);
-    list.push(g);
+    d.build(g, g.userData.params);
+    Object.keys(d.ud).forEach(function (k) { g.userData[k] = clone(d.ud[k]); });
+    return g;
   }
+  // per-type settings, applied to the instance just made and to every later spawn
+  function setUD(k, v) { var g = list[list.length - 1]; defs[g.userData.machine.type].ud[k] = clone(v); g.userData[k] = clone(v); }
+  list.defs = defs; list.order = order; list.spawn = spawn;
   // flat shape (in x,y) extruded `depth` along +z, then placed; opt.rx rotates about x first
   function X(g, c, shape, depth, pos, rx, o) {
     var geo = new THREE.ExtrudeGeometry(shape, { depth: depth, bevelEnabled: false, curveSegments: 18 });
@@ -983,8 +1018,8 @@ function buildMachines(THREE) {
       B(g, LEG, 2.4, p.la - 2.4, p.ha - 12, p.ha - 1, 0.6, 1.2);    // modesty panels
       B(g, LEG, 0.6, 1.2, p.hb - 12, p.hb - 1, 2.4, p.lb - 2.4);
     }, { la: 48, da: 30, ha: 30, lb: 41, db: 18, hb: 30 });
-  list[list.length - 1].userData.pspec = [['la', 'A length', 24, 144], ['da', 'A depth', 12, 48], ['ha', 'A height', 20, 48], ['lb', 'B length', 24, 144], ['db', 'B depth', 12, 48], ['hb', 'B height', 20, 48]];
-  list[list.length - 1].userData.p0 = { la: 48, da: 30, ha: 30, lb: 41, db: 18, hb: 30 };
+  setUD('pspec', [['la', 'A length', 24, 144], ['da', 'A depth', 12, 48], ['ha', 'A height', 20, 48], ['lb', 'B length', 24, 144], ['db', 'B depth', 12, 48], ['hb', 'B height', 20, 48]]);
+  setUD('p0', { la: 48, da: 30, ha: 30, lb: 41, db: 18, hb: 30 });
 
   /* ===== New pieces from the wall drawings. Generic shapes with editable sizes (w, d, h in inches). =====
      Floor pieces: origin at footprint center, +z = front. Wall pieces: back face on local z = 0 (the stud face),
@@ -994,10 +1029,9 @@ function buildMachines(THREE) {
     machine(id, label, model, function (p) {
       return [['Width', p.w + '″'], ['Depth', p.d + '″'], ['Height', p.h + '″']];
     }, note, build, params);
-    var g = list[list.length - 1];
-    g.userData.mount = mount;
-    g.userData.pspec = SIZE;
-    g.userData.p0 = JSON.parse(JSON.stringify(params));
+    setUD('mount', mount);
+    setUD('pspec', SIZE);
+    setUD('p0', params);
   }
 
   // 7' workbench against the back wall, 38" high
@@ -1070,8 +1104,8 @@ function buildMachines(THREE) {
         B(g, 0x14191d, -W + 0.4, W - 0.4, 0.6, p.h - 0.4, p.d, p.d + 0.01);
       });
   }
-  tv('tvback', 'TV (back wall)', '48″ class', { w: 43, d: 3, h: 25 });
-  tv('tvleft', 'TV (door wall)', '43″ class', { w: 38, d: 3, h: 22 });
+  tv('tvback', 'TV 48″', '48″ class', { w: 43, d: 3, h: 25 });
+  tv('tvleft', 'TV 43″', '43″ class', { w: 38, d: 3, h: 22 });
 
   generic('minisplit', 'Mini split', 'Ductless mini-split head', '32″ × 12″ × 6″ per your drawing.', 'wall',
     { w: 32, d: 6, h: 12 }, function (g, p) {
@@ -1108,7 +1142,7 @@ function buildMachines(THREE) {
       B(g, 0x2e3134, -W + 0.3, W - 0.3, 1, p.h, 0.5, p.d);
       B(g, 0x14191d, -W + 1, W - 5, 2, p.h - 1, p.d, p.d + 0.01);
     });
-  list[list.length - 1].userData.below = 4;   // brackets hang 4" under the shelf
+  setUD('below', 4);   // brackets hang 4" under the shelf
 
   generic('panel', 'Electrical panel', 'Breaker panel', 'Size follows your drawing; a typical panel is about 14″ × 24″.', 'wall',
     { w: 20, d: 4, h: 28 }, function (g, p) {
@@ -1228,22 +1262,43 @@ function buildMachines(THREE) {
     g.userData.rebuild = function () {};
     return g;
   };
-  // 240V twist-lock ceiling drop: box on the rafter, cord with strain relief down to a twist-lock connector.
-  list.makeDrop = function (id, p) {
+  // Hanging focus light: a spun-metal shade on a cord from a ceiling box. Origin at the top of the shade.
+  list.makeSpot = function (id, p) {
     var g = new THREE.Group();
-    B(g, 0xd27a3a, -1.4, 1.4, -4, 0, -1.4, 1.4);                            // L6-20 connector body
-    B(g, BLACK, -1, 1, -4.6, -4, -1, 1);
+    var shade = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 5.5, 7, 24, 1, true), mat(0x2f3437));
+    shade.material.side = THREE.DoubleSide; shade.position.y = -3.5; edges(shade); g.add(shade);
+    var lamp = new THREE.Mesh(new THREE.CylinderGeometry(4.9, 4.9, 0.2, 24), new THREE.MeshBasicMaterial({ color: 0xfff4d0 }));
+    lamp.position.y = -6.6; g.add(lamp);
+    B(g, 0x2f3437, -1.5, 1.5, -0.8, 0, -1.5, 1.5);
     hangParts(g, []);
-    var cord = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.3, 1, 8), mat(0x222222));
+    var cord = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1, 6), mat(0x222222));
     g.add(cord); g.userData.cord = cord; g.userData.cordZ = 0;
-    g.userData.machine = { id: id, label: '240V ceiling drop', model: '240V 20A twist-lock (NEMA L6-20) cord drop from a ceiling box',
-      dims: [['Box', '4″ square']],
-      note: 'For machines in the middle of the floor. Box on a rafter with a strain-relief cord grip; set the cord-end height below.' };
+    g.userData.machine = { id: id, label: 'Focus light', model: 'Pendant task light on a cord from a ceiling box',
+      dims: [['Shade', '11″ dia × 7″']],
+      note: 'Hangs over a bench or machine for task light. Switched with the shop lights; set the hang height below.' };
     g.userData.mount = 'roof';
-    g.userData.dev = 'drop';
+    g.userData.dev = 'spot';
     g.userData.params = p || { h: 84 };
     g.userData.p0 = { h: 84 };
-    g.userData.pspec = [['h', 'Cord end height', 48, 120]];
+    g.userData.pspec = [['h', 'Shade top height', 48, 130]];
+    g.userData.rebuild = function () {};
+    return g;
+  };
+  // Floor box: fed straight up from the cable under the floor. Lid sits on the floor; box is below it.
+  list.makeFloorBox = function (kind, id) {
+    var g = new THREE.Group(), hv = kind === 'f220';
+    B(g, 0x7d8387, -2, 2, -3.5, 0, -2, 2);                                   // box under the floor
+    B(g, 0xa9a28c, -2.75, 2.75, 0, 0.35, -2.75, 2.75);                       // floor-rated cover
+    B(g, hv ? 0xd9772f : 0xf4f3ee, -1.6, 1.6, 0.35, 0.5, -1.6, 1.6);         // receptacle under the lid
+    B(g, 0x5b5648, -2.75, 2.75, 0.35, 0.6, 2.2, 2.75);                       // lid hinge
+    g.userData.machine = { id: id, label: hv ? '240V floor box' : '110V floor box',
+      model: hv ? '240V 20A receptacle (NEMA 6-20R) in a floor box' : '120V 20A duplex (NEMA 5-20R) in a floor box',
+      dims: [['Cover', '5½″ square']],
+      note: 'Fed from below: the cable runs under the floor from the wall below the panel. Machines can sit over it.' };
+    g.userData.mount = 'floor';
+    g.userData.fbox = true;
+    g.userData.dev = kind;
+    g.userData.params = null;
     g.userData.rebuild = function () {};
     return g;
   };
@@ -1310,7 +1365,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   var scene = new THREE.Scene();
   var shed = buildShed(THREE, { osbMap: osbTexture(), label: label });
   scene.add(shed.root);
-  var machines = buildMachines(THREE);
+  var machines = buildMachines(THREE), DEFS = machines.defs;
   var mGroup = new THREE.Group();
   function topOf(g) {
     var b = new THREE.Box3();
@@ -1420,7 +1475,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     bench:   { x: 0.5,   z: -108,   r: 0 },
     miter:   { x: -72.5, z: -40,    r: 1 },
     saw:     { x: -16.5, z: 22,     r: 0 },
-    outfeed: { x: -16.5, z: -5,     r: 0 },
+    outfeed: { x: -16.5, z: -12.75, r: 0 },
     planer:  { x: 80,    z: -23,    r: 0 },
     shaper:  { x: 77.25, z: 31,     r: 3 },
     sander:  { x: -80.5, z: 38,     r: 1 },
@@ -1451,11 +1506,11 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   ];
   // 8' strips, three per roof slope: [x (signed, + = two-window side), z center, circuit]
   var DEF_LIGHTS = [[60, -112, 'c6'], [60, 0, 'c6'], [60, 112, 'c6'], [-60, -84, 'c6'], [-60, 12, 'c6'], [-60, 116, 'c6']];
-  // 240V twist-lock ceiling drop above the table saw's right side (the saw sits mid-floor)
-  var DEF_DROPS = [[24, 4, 'c1']];
+  // 240V floor box beside the table saw (the saw sits mid-floor): [kind, x, z, circuit]
+  var DEF_FLOOR = [['f220', 24, 4, 'c1']];
   // Branch circuits. v = volts, a = breaker amps, va = assumed running load (volt-amps) for the load check.
   var DEF_CIRCUITS = [
-    { id: 'c1',  name: 'Table saw ceiling drop (G0651)', v: 240, a: 20, va: 3120 },
+    { id: 'c1',  name: 'Table saw floor box (G0651)', v: 240, a: 20, va: 3120 },
     { id: 'c2',  name: 'Planer (G0891)',             v: 240, a: 20, va: 2760 },
     { id: 'c3',  name: 'Shaper (G1026)',             v: 240, a: 20, va: 2880 },
     { id: 'c11', name: 'Door wall 240V receptacles', v: 240, a: 20, va: 0 },
@@ -1470,7 +1525,6 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   var circuits = JSON.parse(JSON.stringify(DEF_CIRCUITS));
   var KEY = 'shed-layout-v7';
   var EPS = 0.001, BIG = 1e6;
-  var PAIRS = { 'saw|outfeed': 1, 'outfeed|saw': 1 };   // the outfeed table bolts under the saw's fence
   var WALLS = {
     left:  { r: 1, ax: 'z', lo: -HL, hi: HL, name: 'Entry-door wall' },
     right: { r: 3, ax: 'z', lo: -HL, hi: HL, name: 'Two-window wall' },
@@ -1570,15 +1624,15 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
 
   /* ---- obstacle sets ---- */
   function obstacles(g, ignore) {
-    var id = g.userData.machine.id, o = { flat: [], solid: [], fine: [] };
+    var o = { flat: [], solid: [], fine: [] };
     items.forEach(function (it) {
       if (it === g || (ignore && ignore.indexOf(it) >= 0)) return;
-      var oid = it.userData.machine.id;
+      if (!it.userData.fbox !== !g.userData.fbox) return;   // floor boxes only meet other floor boxes
       if (g.userData.mount === 'roof') { if (it.userData.mount === 'roof') o.solid.push(boxOf(it)); return; }
       if (it.userData.mount === 'roof') return;
       if (!isWall(g)) {                                     // moving a floor piece
         if (isWall(it)) { if (!it.userData.outlet) o.solid.push(boxOf(it)); }
-        else if (!PAIRS[id + '|' + oid]) o.flat.push(flat(boxOf(it)));
+        else o.flat.push(flat(boxOf(it)));
       } else if (g.userData.outlet) {                       // moving an outlet: other outlets only
         if (it.userData.outlet) o.solid.push(boxOf(it));
       } else {                                              // moving a wall piece
@@ -1741,7 +1795,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }
 
   function placeDefault(g) {
-    var id = g.userData.machine.id, d = DEFAULTS[id];
+    var d = DEFAULTS[g.userData.machine.type] || { x: 0, z: 0, r: 0, w: 'back', a: 0, y: 48 };
     if (isWall(g)) apply(g, wallState(d.w, d.a, d.y)); else apply(g, { x: d.x, y: 0, z: d.z, r: d.r });
   }
 
@@ -1757,12 +1811,12 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   function hangOf(g) { return (g.userData.params && g.userData.params.h) || 102; }
   function roofState(g, x, z) {
     var isL = g.userData.dev === 'light';
-    var bz = isL ? Math.max(z - 40, Math.min(z + 40, trussZ(z))) : trussZ(z);
+    var bz = isL ? Math.max(z - 40, Math.min(z + 40, trussZ(z))) : z;   // focus lights hang from a box on blocking
     return { x: x, z: z, y: hangOf(g), r: 0, bz: bz, top: roofSlope(x, bz, bz).y };
   }
   function roofBox(g, st) {
     if (g.userData.dev === 'light') return { x0: st.x - 3, x1: st.x + 3, y0: st.y - 2, y1: st.y, z0: st.z - 48, z1: st.z + 48 };
-    return { x0: st.x - 1.6, x1: st.x + 1.6, y0: st.y - 4.6, y1: st.top, z0: st.z - 1.6, z1: st.z + 1.6 };
+    return { x0: st.x - 5.5, x1: st.x + 5.5, y0: st.y - 7, y1: st.top, z0: st.z - 5.5, z1: st.z + 5.5 };
   }
   function isRoof(g) { return g.userData.mount === 'roof'; }
   function isDev(g) { return !!g.userData.dev; }
@@ -1785,7 +1839,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }
   function addRoof(kind, x, z, c, id, p) {
     id = id || nextId(kind); bumpSeq(id);
-    var g = kind === 'drop' ? machines.makeDrop(id, p ? JSON.parse(JSON.stringify(p)) : null) : machines.makeLight(id, p ? JSON.parse(JSON.stringify(p)) : null);
+    var g = kind === 'spot' ? machines.makeSpot(id, p ? JSON.parse(JSON.stringify(p)) : null) : machines.makeLight(id, p ? JSON.parse(JSON.stringify(p)) : null);
     apply(g, { x: x, z: z });
     measure(g);
     addSprite(g, [40, 10], [0, 10, 0]);
@@ -1794,8 +1848,29 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     g.userData.c = c && circuitById(c) ? c : autoCircuit(kind);
     return g;
   }
+  function addFloorBox(kind, x, z, r, c, id) {
+    id = id || nextId('fb'); bumpSeq(id);
+    var g = machines.makeFloorBox(kind, id);
+    measure(g);
+    addSprite(g, [30, 7.5], [0, 8, 0]);
+    items.push(g); byId[id] = g; mGroup.add(g);
+    apply(g, snapFloor(g, x, z, r || 0));
+    g.userData.c = c && circuitById(c) ? c : autoCircuit(kind);
+    return g;
+  }
+  function decorate(g) {
+    measure(g);
+    var lab = label(g.userData.machine.label);
+    if (lab) { lab.scale.set(44, 11, 1); lab.position.y = g.userData.top + 10; g.add(lab); g.userData.sprite = lab; }
+  }
+  function addMachine(type, id) {
+    var g = machines.spawn(type, id);
+    if (!g.userData.mount) g.userData.mount = 'floor';
+    decorate(g);
+    items.push(g); byId[id] = g; mGroup.add(g);
+    return g;
+  }
   function removeItem(g) { mGroup.remove(g); items.splice(items.indexOf(g), 1); delete byId[g.userData.machine.id]; }
-  function clearDevices() { items.filter(isDev).forEach(removeItem); }
 
   /* ---- circuits ---- */
   function circuitById(id) { for (var i = 0; i < circuits.length; i++) if (circuits[i].id === id) return circuits[i]; return null; }
@@ -1806,8 +1881,8 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }
   function autoCircuit(kind, wall) {
     if (kind === '220') return newCircuit('240V receptacle', 240, 20);
-    if (kind === 'drop') return newCircuit('240V ceiling drop', 240, 20);
-    if (kind === 'sp' || kind === '3w' || kind === 'light') {
+    if (kind === 'f220') return newCircuit('240V floor box', 240, 20);
+    if (kind === 'sp' || kind === '3w' || kind === 'light' || kind === 'spot') {
       var lit = items.filter(function (g) { return g.userData.dev === 'light' && g.userData.c; })[0];
       if (lit) return lit.userData.c;
       var named = circuits.filter(function (c) { return /light/i.test(c.name) && c.v === 120; })[0];
@@ -1827,12 +1902,13 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       if (isRoof(g)) e = { k: g.userData.dev, x: +s.x.toFixed(3), z: +s.z.toFixed(3) };
       else if (isWall(g)) e = { w: s.w, a: +s.a.toFixed(3), y: +s.y.toFixed(3) };
       else e = { x: +s.x.toFixed(3), z: +s.z.toFixed(3), r: s.r };
-      if (g.userData.dev) e.k = g.userData.dev;
+      if (g.userData.dev) e.k = g.userData.dev; else e.t = g.userData.machine.type;
       if (g.userData.c) e.c = g.userData.c;
       if (g.userData.params) e.p = JSON.parse(JSON.stringify(g.userData.params));
       out[id] = e;
     });
     out.__circuits = JSON.parse(JSON.stringify(circuits));
+    out.__v = 4;                                  // v4: every piece is listed; a missing piece was deleted
     return out;
   }
   function save() {
@@ -1891,38 +1967,62 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       });
     }).catch(function () {});
   }
-  // Set every piece from a layout; anything the layout doesn't mention goes to its default.
-  function applyLayout(saved) {
-    machines.forEach(function (g) {
-      var id = g.userData.machine.id, sv = saved && saved[id];
-      if (g.userData.params) {
-        g.userData.params = JSON.parse(JSON.stringify(sv && sv.p ? sv.p : g.userData.p0));
-        rebuildMachine(g);
-      }
-      if (sv && isWall(g) && WALLS[sv.w] && isFinite(sv.a) && isFinite(sv.y)) apply(g, wallState(sv.w, +sv.a, +sv.y));
-      else if (sv && !isWall(g) && isFinite(sv.x) && isFinite(sv.z)) apply(g, { x: +sv.x, y: 0, z: +sv.z, r: +sv.r || 0 });
-      else placeDefault(g);
+  // Set every piece from a layout. v4 layouts list every piece (missing = deleted). Older layouts list the
+  // original machines by id; anything they don't mention goes to its default, and devices get the old defaults.
+  function sigOf(g) { return g.userData.dev ? 'k:' + g.userData.dev : 't:' + g.userData.machine.type; }
+  function layoutEntries(saved) {
+    var out = [];
+    if (saved && saved.__v >= 4) {
+      Object.keys(saved).forEach(function (k) {
+        var e = saved[k];
+        if (k.slice(0, 2) === '__' || !e || typeof e !== 'object') return;
+        if (e.k) out.push({ id: k, dev: e.k, e: e });
+        else if (DEFS[e.t || k]) out.push({ id: k, type: e.t || k, e: e });
+      });
+      return out;
+    }
+    machines.order.forEach(function (t) { out.push({ id: t, type: t, e: saved && saved[t] && !saved[t].k ? saved[t] : null }); });
+    var devs = saved ? Object.keys(saved).filter(function (k) { return saved[k] && saved[k].k; }) : [];
+    function has(kinds) { return devs.some(function (k) { return kinds.indexOf(saved[k].k) >= 0; }); }
+    devs.forEach(function (k) { out.push({ id: k, dev: saved[k].k === 'drop' ? 'f220' : saved[k].k, e: saved[k] }); });  // old ceiling drops become floor boxes
+    var lit = has(['sp', '3w', 'light']);
+    DEF_DEVICES.forEach(function (d) {
+      if (!devs.length || (!lit && (d[0] === 'sp' || d[0] === '3w'))) out.push({ id: null, dev: d[0], e: { w: d[1], a: d[2], y: d[3], c: d[4] } });
     });
-    clearDevices(); seq = 0;
+    if (!lit) DEF_LIGHTS.forEach(function (l) { out.push({ id: null, dev: 'light', e: { x: l[0], z: l[1], c: l[2] } }); });
+    if (!has(['drop', 'light'])) DEF_FLOOR.forEach(function (f) { out.push({ id: null, dev: f[0], e: { x: f[1], z: f[2], r: 0, c: f[3] } }); });
+    return out;
+  }
+  function applyLayout(saved) {
+    var entries = layoutEntries(saved), keep = {}, sid = selected && selected.userData.machine.id;
+    entries.forEach(function (en) { var g = byId[en.id]; if (g && en.type && sigOf(g) === 't:' + en.type) keep[en.id] = g; });
+    items.slice().forEach(function (g) { if (keep[g.userData.machine.id] !== g) removeItem(g); });
+    seq = 0;
+    entries.forEach(function (en) { if (en.id) bumpSeq(en.id); });
     circuits = saved && Array.isArray(saved.__circuits) && saved.__circuits.length
       ? JSON.parse(JSON.stringify(saved.__circuits)) : JSON.parse(JSON.stringify(DEF_CIRCUITS));
-    var keys = saved ? Object.keys(saved).filter(function (k) { return saved[k] && saved[k].k; }) : [];
-    if (keys.length) keys.forEach(function (k) {
-      var e = saved[k];
-      if ((e.k === 'light' || e.k === 'drop') && isFinite(e.x) && isFinite(e.z)) addRoof(e.k, +e.x, +e.z, e.c, k, e.p);
-      else if (DEVK[e.k] && WALLS[e.w]) addDevice(e.k, e.w, +e.a, +e.y, e.c, k);
+    circuits.forEach(function (c) { c.name = String(c.name).replace(/ceiling drop/i, 'floor box'); });
+    entries.forEach(function (en) {
+      var e = en.e;
+      if (en.dev) {
+        if (en.dev === 'light' || en.dev === 'spot') { if (isFinite(e.x) && isFinite(e.z)) addRoof(en.dev, +e.x, +e.z, e.c, en.id, e.p); }
+        else if (en.dev === 'f110' || en.dev === 'f220') { if (isFinite(e.x) && isFinite(e.z)) addFloorBox(en.dev, +e.x, +e.z, +e.r || 0, e.c, en.id); }
+        else if (DEVK[en.dev] && WALLS[e.w]) addDevice(en.dev, e.w, +e.a, +e.y, e.c, en.id);
+        return;
+      }
+      var g = keep[en.id] || addMachine(en.type, en.id);
+      if (g.userData.params) {
+        g.userData.params = JSON.parse(JSON.stringify(e && e.p ? e.p : g.userData.p0));
+        rebuildMachine(g);
+      }
+      if (e && isWall(g) && WALLS[e.w] && isFinite(e.a) && isFinite(e.y)) apply(g, wallState(e.w, +e.a, +e.y));
+      else if (e && !isWall(g) && isFinite(e.x) && isFinite(e.z)) apply(g, { x: +e.x, y: 0, z: +e.z, r: +e.r || 0 });
+      else placeDefault(g);
     });
-    var hasSwitchOrLight = keys.some(function (k) { return saved[k].k === 'sp' || saved[k].k === '3w' || saved[k].k === 'light'; });
-    if (!keys.length) {                                   // no devices saved: use the full default set
-      DEF_DEVICES.forEach(function (d) { addDevice(d[0], d[1], d[2], d[3], d[4]); });
-    } else if (!hasSwitchOrLight) {                       // older layout with outlets only: add default switches
-      DEF_DEVICES.forEach(function (d) { if (d[0] === 'sp' || d[0] === '3w') addDevice(d[0], d[1], d[2], d[3], d[4]); });
-    }
-    if (!hasSwitchOrLight) DEF_LIGHTS.forEach(function (l) { addRoof('light', l[0], l[1], l[2]); });
-    if (!keys.some(function (k) { return saved[k].k === 'drop'; }) && !keys.some(function (k) { return saved[k].k === 'light'; }))
-      DEF_DROPS.forEach(function (d) { addRoof('drop', d[0], d[1], d[2]); });
     save();
-    select(selected && items.indexOf(selected) >= 0 ? selected : null);
+    refreshVis();
+    var ns = sid && byId[sid];
+    select(ns && ns.visible ? ns : null);
     if (wiringOn) buildWiring();
   }
   var DEVK = { '110': 1, '220': 1, 'sp': 1, '3w': 1 };
@@ -1955,7 +2055,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     clearTimeout(toast.t); toast.t = setTimeout(function () { el.hidden = true; }, 3500);
   }
   async function saveFile() {
-    var data = JSON.stringify({ app: 'crack-shack-layout', version: 3, savedAt: new Date().toISOString(), machines: collect() }, null, 2);
+    var data = JSON.stringify({ app: 'crack-shack-layout', version: 4, savedAt: new Date().toISOString(), machines: collect() }, null, 2);
     await saveText('shop-layout-' + new Date().toISOString().slice(0, 10) + '.json', data, 'application/json', 'Shop layout', '.json');
   }
   async function saveText(name, data, mime, desc, ext) {
@@ -1986,7 +2086,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       var obj;
       try { obj = JSON.parse(rd.result); } catch (e) { obj = null; }
       var m = obj && (obj.machines || obj);
-      if (!m || typeof m !== 'object' || !machines.some(function (g) { return m[g.userData.machine.id]; })) {
+      if (!m || typeof m !== 'object' || !(m.__v >= 4 || machines.order.some(function (t) { return m[t]; }))) {
         toast('That file isn\'t a shop layout. Pick a .json saved from this app.', true);
         return;
       }
@@ -2058,8 +2158,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     document.getElementById('sel-dims').innerHTML = dims.map(function (d) { return '<dt>' + esc(d[0]) + '</dt><dd>' + esc(d[1]) + '</dd>'; }).join('');
     document.getElementById('sel-note').textContent = m.note;
     document.getElementById('sel-rot').hidden = isWall(g) || isRoof(g);
-    document.getElementById('sel-del').hidden = !isDev(g);
-    document.getElementById('sel-del').textContent = 'Delete ' + m.label.toLowerCase();
+    document.getElementById('sel-del').hidden = false;
     renderCircuit(g);
     renderParams(g);
     if (wiringOn && !drag) buildWiring();
@@ -2121,7 +2220,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   function renderCircuit(g) {
     var box = document.getElementById('sel-circuit');
     if (!isDev(g)) { box.hidden = true; box.innerHTML = ''; return; }
-    var need = g.userData.dev === '220' || g.userData.dev === 'drop' ? 240 : 120;
+    var need = g.userData.dev === '220' || g.userData.dev === 'f220' ? 240 : 120;
     slotCache = assignSlots();
     var opts = circuits.filter(function (c) { return c.v === need; }).map(function (c) {
       return '<option value="' + c.id + '"' + (c.id === g.userData.c ? ' selected' : '') + '>' + esc(slotOf(c.id) + ' · ' + c.name) + '</option>';
@@ -2135,31 +2234,104 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       commit(before); renderCircuit(g); if (wiringOn) buildWiring();
     });
   }
-  function addNew(kind) {
-    var before = snap(), g, spot;
+  /* ---- library: add any piece; delete any piece ---- */
+  var LIB_DEV = {
+    '110': '110V outlet', '220': '220V outlet', 'sp': 'Light switch', '3w': '3-way switch',
+    'f110': '110V floor box', 'f220': '240V floor box', 'light': '8′ strip light', 'spot': 'Focus light'
+  };
+  function libraryGroups() {
+    var floor = [], wall = [];
+    machines.order.forEach(function (t) {
+      if (t === 'panel') return;
+      var m = (DEFS[t].ud.mount || 'floor') === 'wall' ? wall : floor;
+      m.push({ type: t, name: DEFS[t].label });
+    });
+    return [
+      { name: 'Machines and furniture', items: floor },
+      { name: 'TVs and wall pieces', items: wall },
+      { name: 'Electrical', items: ['110', '220', 'sp', '3w', 'f110', 'f220'].map(function (k) { return { dev: k, name: LIB_DEV[k] }; })
+          .concat([{ type: 'panel', name: DEFS.panel.label }]) },
+      { name: 'Lighting', items: [{ dev: 'light', name: LIB_DEV.light }, { dev: 'spot', name: LIB_DEV.spot }] }
+    ];
+  }
+  function facedWall() {
     var dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-    if (kind === 'light' || kind === 'drop') {
-      g = addRoof(kind, dir.x >= 0 ? 40 : -40, 0);
-      spot = findFree(g, roofState(g, g.position.x, 0), obstacles(g), 140);
-      if (!spot) { removeItem(g); toast('No free spot for another light.', true); return; }
-    } else {
-      // start on the wall the camera faces, at the usual height, in the nearest free stud bay
-      var w = Math.abs(dir.x) > Math.abs(dir.z) ? (dir.x > 0 ? 'right' : 'left') : (dir.z > 0 ? 'back' : 'front');
-      g = addDevice(kind, w, 0, kind === 'sp' || kind === '3w' ? 46 : 18);
+    return Math.abs(dir.x) > Math.abs(dir.z) ? (dir.x > 0 ? 'right' : 'left') : (dir.z > 0 ? 'back' : 'front');
+  }
+  function target() {
+    return { x: Math.max(-HW + 20, Math.min(HW - 20, Math.round(controls.target.x))), z: Math.max(-HL + 20, Math.min(HL - 20, Math.round(controls.target.z))) };
+  }
+  function libAdd(en) {
+    var before = snap(), g, spot, tg = target(), k = en.dev;
+    if (k === 'light' || k === 'spot') {
+      var dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+      g = addRoof(k, dir.x >= 0 ? 40 : -40, tg.z);
+      spot = findFree(g, roofState(g, g.position.x, g.position.z), obstacles(g), 160);
+    } else if (k === 'f110' || k === 'f220') {
+      g = addFloorBox(k, tg.x, tg.z, 0);
+      spot = findFree(g, stateOf(g), obstacles(g), 80);
+    } else if (k) {
+      g = addDevice(k, facedWall(), 0, k === 'sp' || k === '3w' ? 46 : 18);
       spot = findFree(g, stateOf(g), obstacles(g), 40);
-      if (!spot) { removeItem(g); toast('No free spot on that wall.', true); return; }
+    } else {
+      g = addMachine(en.type, byId[en.type] ? nextId(en.type) : en.type);
+      if (isWall(g)) {
+        var y = (DEFAULTS[en.type] && DEFAULTS[en.type].y) || 48, walls = [facedWall()].concat(['back', 'right', 'left', 'front']);
+        for (var i = 0; i < walls.length && !spot; i++) { apply(g, wallState(walls[i], 0, y)); spot = findFree(g, stateOf(g), obstacles(g), 90); }
+      } else {
+        apply(g, { x: tg.x, y: 0, z: tg.z, r: 0 });
+        spot = findFree(g, stateOf(g), obstacles(g), 150);
+      }
     }
-    apply(g, spot); select(g); commit(before);
-    document.getElementById('more').open = false;
-    var nm = g.userData.machine.label.replace(/^Light/, 'light');
-    toast('Added ' + (/^[aeiou8]/i.test(nm) ? 'an ' : 'a ') + nm + '. Drag it into place.');
+    if (!spot) { removeItem(g); toast('No free spot for that. Make some room first.', true); return; }
+    apply(g, spot);
+    var l = layerOf(g);
+    if (l && !vis[l]) setVis(l, true); else refreshVis();
+    select(g); commit(before);
+    document.getElementById('lib').open = false;
+    toast('Added ' + g.userData.machine.label + '. Drag it to move it.');
     if (wiringOn) buildWiring();
+  }
+  function renderLibrary() {
+    var el = document.getElementById('lib-body');
+    el.innerHTML = libraryGroups().map(function (gr, gi) {
+      return '<h2>' + esc(gr.name) + '</h2><div class="toggles">' + gr.items.map(function (it, ii) {
+        return '<button type="button" data-lib="' + gi + ':' + ii + '">' + esc(it.name) + '</button>';
+      }).join('') + '</div>';
+    }).join('') + '<p>To remove a piece, click it, then press Delete.</p>';
+    var groups = libraryGroups();
+    el.querySelectorAll('[data-lib]').forEach(function (b) {
+      b.addEventListener('click', function () { var ix = b.getAttribute('data-lib').split(':'); libAdd(groups[+ix[0]].items[+ix[1]]); });
+    });
   }
   function deleteSel() {
-    if (!selected || !isDev(selected)) return;
+    if (!selected) return;
+    var nm = selected.userData.machine.label;
     var before = snap(); removeItem(selected); select(null); commit(before);
+    toast('Deleted ' + nm + '. Ctrl+Z to undo.');
     if (wiringOn) buildWiring();
   }
+
+  /* ---- layers: Electrical (outlets, switches, floor boxes, panel), Lights, Wall items ---- */
+  var vis = { elec: false, lights: true, wall: true };
+  function layerOf(g) {
+    var u = g.userData;
+    if (u.dev === 'light' || u.dev === 'spot') return 'lights';
+    if (u.dev || u.machine.type === 'panel') return 'elec';
+    if (u.mount === 'wall') return 'wall';
+    return null;
+  }
+  function refreshVis() {
+    items.forEach(function (g) { var l = layerOf(g); g.visible = !l || vis[l]; });
+    Object.keys(vis).forEach(function (k) {
+      var b = document.querySelector('[data-vis="' + k + '"]'); if (b) b.setAttribute('aria-pressed', vis[k] ? 'true' : 'false');
+    });
+    if (selected && !selected.visible) select(null);
+  }
+  function setVis(k, on) { vis[k] = on; refreshVis(); }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-vis]'), function (b) {
+    b.addEventListener('click', function () { var k = b.getAttribute('data-vis'); setVis(k, !vis[k]); });
+  });
 
   /* ================= wiring plan ================= */
   var wiringOn = false, wireGroup = new THREE.Group(), wirePlan = null;
@@ -2172,7 +2344,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   function circuitVA(c) {
     if (c.va) return c.va;
     var va = 0;
-    devicesOn(c.id).forEach(function (g) { var k = g.userData.dev; va += k === 'light' ? VA_LIGHT : (k === '110' || k === '220' || k === 'drop') ? VA_RECEP : 0; });
+    devicesOn(c.id).forEach(function (g) { var k = g.userData.dev; va += k === 'light' || k === 'spot' ? VA_LIGHT : (k === '110' || k === '220' || k === 'f110' || k === 'f220') ? VA_RECEP : 0; });
     return va;
   }
   // breaker slots: 2-pole breakers first, then 1-pole on the lighter leg
@@ -2232,6 +2404,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   function anchor(g) {
     var b = boxOf(g);
     if (isRoof(g)) { var rs = stateOf(g); return { roof: true, x: rs.x, z: rs.bz, top: rs.top - 1, side: rs.x > 0 ? 1 : -1 }; }
+    if (g.userData.fbox) return { floor: true, x: g.position.x, z: g.position.z };
     var u = g.userData;
     return { t: tOf(u.wall, u.a), top: b.y1, y0: b.y0 };
   }
@@ -2246,8 +2419,17 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }
   function footT(an) { return tOf(an.side > 0 ? 'right' : 'left', an.z); }
   // one cable between two boxes, following the framing
+  var UNDER = -4;   // cable height under the floor deck
   function hop(A, Bn) {
     var p;
+    // floor boxes: down the stud bay, through the floor, under the deck, up into the box
+    if (Bn.floor && !A.floor) {
+      if (A.roof) { var Wf = { t: footT(A), top: PLATE, y0: PLATE }; return hop(A, Wf).concat(hop(Wf, Bn).slice(1)); }
+      var s0 = pt(A.t, UNDER, -3);
+      return [pt(A.t, A.y0), pt(A.t, UNDER), s0, [Bn.x, UNDER, s0[2]], [Bn.x, UNDER, Bn.z], [Bn.x, 0, Bn.z]];
+    }
+    if (A.floor && !Bn.floor) return hop(Bn, A).reverse();
+    if (A.floor && Bn.floor) return [[A.x, 0, A.z], [A.x, UNDER, A.z], [Bn.x, UNDER, A.z], [Bn.x, UNDER, Bn.z], [Bn.x, 0, Bn.z]];
     if (!A.roof && !Bn.roof) {
       p = [pt(A.t, A.top), pt(A.t, PLATE), pt(A.t, PLATE, FACE)];
       p = p.concat(run(A.t, Bn.t, PLATE, FACE));
@@ -2266,10 +2448,10 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
 
   function routeCircuit(c, panelA) {
     var segs = [], devs = devicesOn(c.id);
-    var lights = devs.filter(function (g) { return g.userData.dev === 'light'; });
+    var lights = devs.filter(function (g) { return g.userData.dev === 'light' || g.userData.dev === 'spot'; });
     var sw3 = devs.filter(function (g) { return g.userData.dev === '3w'; }), sw1 = devs.filter(function (g) { return g.userData.dev === 'sp'; });
-    var recs = devs.filter(function (g) { var k = g.userData.dev; return k === '110' || k === '220' || k === 'drop'; });
-    function seg(pts, cond, note) { segs.push({ pts: pts, cond: cond || 2, note: note || '' }); }
+    var recs = devs.filter(function (g) { var k = g.userData.dev; return k === '110' || k === '220' || k === 'f110' || k === 'f220'; });
+    function seg(pts, cond, note) { segs.push({ pts: pts, cond: cond || 2, note: note || '', uf: pts.some(function (q) { return q[1] < 0; }) }); }
     // greedy chain: each next box is the one with the shortest cable from the current box
     function chain(start, list) {
       var cur = start, left = list.slice();
@@ -2280,7 +2462,8 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
         seg(hop(cur, an)); cur = an;
       }
     }
-    var feed = { t: panelA.t, top: panelA.top };
+    if (!panelA) return segs;
+    var feed = { t: panelA.t, top: panelA.top, y0: panelA.y0 };
     if (!lights.length && !sw3.length && !sw1.length) { chain(feed, recs); return segs; }
     var switches = sw3.concat(sw1), first = null, ctrl = null, extra = [];
     if (switches.length) {
@@ -2308,20 +2491,20 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
 
   function computePlan() {
     slotCache = assignSlots();
-    var pnl = byId.panel, pa = anchor(pnl);
+    var pnl = items.filter(function (g) { return g.userData.machine.type === 'panel'; })[0], pa = pnl ? anchor(pnl) : null;
     var plan = { circuits: [], legA: 0, legB: 0, cable: {}, warn: [] };
     circuits.forEach(function (c, i) {
       var segs = routeCircuit(c, pa), g = wireGauge(c.a), devs = devicesOn(c.id), ft = 0;
       segs.forEach(function (sg) {
-        var L = len(sg.pts) / 12, key = g + '/' + sg.cond + (sg.cond === 3 ? ' (travelers)' : '');
+        var L = len(sg.pts) / 12, key = g + '/' + sg.cond + (sg.uf ? ' UF' : '') + (sg.cond === 3 ? ' (travelers)' : '');
         sg.ft = L; ft += L;
         plan.cable[key] = (plan.cable[key] || 0) + L + 1;
       });
       var count = {}; devs.forEach(function (d) { count[d.userData.dev] = (count[d.userData.dev] || 0) + 1; });
-      var hasRec = !!(count['110'] || count['220'] || count.light || count.drop);   // lights plug into ceiling receptacles
+      var hasRec = !!(count['110'] || count['220'] || count.light || count.f110 || count.f220);   // lights plug into ceiling receptacles
       plan.circuits.push({ c: c, color: COLORS[i % COLORS.length], segs: segs, ft: Math.ceil(ft + devs.length + 2), gauge: g,
         count: count, gfci: hasRec, va: circuitVA(c), slot: slotCache[c.id] });
-      if (c.v === 120 && devs.some(function (d) { return d.userData.dev === '220' || d.userData.dev === 'drop'; })) plan.warn.push(c.name + ': has a 240V device on a 120V circuit.');
+      if (c.v === 120 && devs.some(function (d) { return d.userData.dev === '220' || d.userData.dev === 'f220'; })) plan.warn.push(c.name + ': has a 240V device on a 120V circuit.');
       if (!devs.length && c.va === 0) plan.warn.push(c.name + ': nothing is assigned to it yet.');
     });
     // peak estimate: one 240V machine at a time + dedicated 120V loads + lighting + 1500 VA of hand tools
@@ -2338,6 +2521,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     plan.legA = A; plan.legB = Bv; plan.big = big;
     var spaces = 0; circuits.forEach(function (c) { spaces += c.v === 240 ? 2 : 1; });
     plan.spaces = spaces;
+    if (!pnl) plan.warn.unshift('No electrical panel in the layout. Add one from the Library to see cable routes.');
     if (spaces > PANEL_SPACES) plan.warn.push('More breakers than the ' + PANEL_SPACES + '-space panel holds.');
     if (Math.max(A, Bv) > FEED_A * 0.8) plan.warn.push('Estimated peak is over 80% of the 50A feeder. Run fewer things at once or upsize the feeder.');
     return plan;
@@ -2368,10 +2552,12 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   var skinMemo = null;
   function setWiring(on) {
     if (on && !skinMemo) {
-      skinMemo = { wallSkin: shed.layers.wallSkin.visible, roofSkin: shed.layers.roofSkin.visible };
+      skinMemo = { wallSkin: shed.layers.wallSkin.visible, roofSkin: shed.layers.roofSkin.visible, elec: vis.elec, lights: vis.lights };
       setLayer('wallSkin', false); setLayer('roofSkin', false);
+      vis.elec = true; vis.lights = true; refreshVis();
     } else if (!on && skinMemo) {
-      setLayer('wallSkin', skinMemo.wallSkin); setLayer('roofSkin', skinMemo.roofSkin); skinMemo = null;
+      setLayer('wallSkin', skinMemo.wallSkin); setLayer('roofSkin', skinMemo.roofSkin);
+      vis.elec = skinMemo.elec; vis.lights = skinMemo.lights; skinMemo = null; refreshVis();
     }
     wiringOn = on;
     wireGroup.visible = on;
@@ -2383,8 +2569,8 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   /* ---- schematic drawer ---- */
   function ampsBar(v) { var pct = Math.min(100, v / FEED_A * 100); return '<span class="bar2"><i style="width:' + pct.toFixed(0) + '%"' + (v > FEED_A * 0.8 ? ' class="hot"' : '') + '></i></span>'; }
   function devSummary(count) {
-    var names = { '110': '110V outlet', '220': '220V outlet', 'drop': 'ceiling drop', 'sp': 'switch', '3w': '3-way', 'light': 'light' }, out = [];
-    Object.keys(names).forEach(function (k) { if (count[k]) out.push(count[k] + ' ' + names[k] + (count[k] > 1 ? (k === '3w' ? 's' : k === 'sp' ? 'es' : 's') : '')); });
+    var names = { '110': '110V outlet', '220': '220V outlet', 'f110': '110V floor box', 'f220': '240V floor box', 'sp': 'switch', '3w': '3-way', 'light': 'light', 'spot': 'focus light' }, out = [];
+    Object.keys(names).forEach(function (k) { if (count[k]) out.push(count[k] + ' ' + names[k] + (count[k] > 1 ? (/(box|switch)$/.test(names[k]) ? 'es' : 's') : '')); });
     return out.join(', ') || '—';
   }
   function oneLineSVG(plan) {
@@ -2409,10 +2595,10 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   function materials(plan) {
     var rows = [];
     Object.keys(plan.cable).sort().forEach(function (k) {
-      var g = k.split('/')[0], cond = k.split('/')[1];
-      rows.push([g + '/' + cond + ' NM-B with ground' + (k.indexOf('travelers') >= 0 ? ', 3-way travelers' : ''), Math.ceil(plan.cable[k] / 25) * 25 + ' ft']);
+      var m = k.match(/^(\d+)\/(\d)/), uf = / UF/.test(k);
+      rows.push([m[1] + '/' + m[2] + (uf ? ' UF-B with ground, runs under the floor' : ' NM-B with ground') + (k.indexOf('travelers') >= 0 ? ', 3-way travelers' : ''), Math.ceil(plan.cable[k] / 25) * 25 + ' ft']);
     });
-    var cnt = { '110': 0, '220': 0, 'sp': 0, '3w': 0, 'light': 0, 'drop': 0 };
+    var cnt = { '110': 0, '220': 0, 'sp': 0, '3w': 0, 'light': 0, 'spot': 0, 'f110': 0, 'f220': 0 };
     items.forEach(function (g) { if (isDev(g)) cnt[g.userData.dev]++; });
     var b1 = {}, b2 = {};
     plan.circuits.forEach(function (p) {
@@ -2430,9 +2616,12 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       rows.push(['Switched ceiling receptacles for the lights (5-15R) in 4″ boxes on rafters', cnt.light]);
       rows.push(['1×4 running boards along the rafters', '2']);
     }
-    if (cnt.drop) {
-      rows.push(['240V twist-lock receptacles, NEMA L6-20R, in 4″ ceiling boxes', cnt.drop]);
-      rows.push(['Strain-relief cord grips and 12/3 SOOW drop cords with L6-20P plugs', cnt.drop]);
+    if (cnt.spot) rows.push(['Pendant focus lights on cords, with 4″ ceiling boxes on blocking', cnt.spot]);
+    if (cnt.f110 + cnt.f220) {
+      rows.push(['Floor boxes listed for floor use, with in-use covers', cnt.f110 + cnt.f220]);
+      if (cnt.f110) rows.push(['20A duplex receptacles for floor boxes, NEMA 5-20R', cnt.f110]);
+      if (cnt.f220) rows.push(['20A 240V receptacles for floor boxes, NEMA 6-20R', cnt.f220]);
+      rows.push(['Cable straps or conduit for runs under the floor; sill bushing where the cable passes the floor', '—']);
     }
     Object.keys(b1).forEach(function (k) { rows.push(['1-pole breaker ' + k, b1[k]]); });
     Object.keys(b2).forEach(function (k) { rows.push(['2-pole breaker ' + k, b2[k]]); });
@@ -2444,8 +2633,8 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     'Planning drawing only. Not for permit or construction.',
     'Massachusetts: permits issued after April 24, 2026 fall under the 2026 Massachusetts Electrical Code (the 2026 NEC with state amendments). Confirm the details with the Lunenburg wiring inspector.',
     'Routing follows the "up and over" method common in open-stud shops: horizontal runs stapled along the face of the top plate (about 7′ up), vertical drops down the side of a stud to each box. Many inspectors treat horizontal cable through open studs low on the wall as subject to damage. Some may still ask for MC cable or EMT conduit on exposed walls, or for the walls to be sheathed; ask before rough-in.',
-    'Lights: plug-in LED shop lights hang on chains, each from a switched ceiling receptacle on the rafter above it. Ceiling boxes in a row are linked along a running board; the run to the far slope follows a truss over the collar tie.',
-    'Table saw: it sits mid-floor, so it is fed from a 240V twist-lock ceiling drop (NEMA L6-20) with a strain-relief grip, which keeps the cord off the floor. The saw needs a matching plug or a short drop cord.',
+    'Lights: plug-in LED shop lights hang on chains, each from a switched ceiling receptacle on the rafter above it. Focus lights hang on cords from ceiling boxes on blocking and are switched with the shop lights. Ceiling boxes in a row are linked along a running board; the run to the far slope follows a truss over the collar tie.',
+    'Floor boxes (the table saw sits mid-floor): the cable drops from the wall bay through the floor, runs under the floor, and comes up into a box listed for floor use with an in-use cover. The underside of a shed floor is a damp location, so the run under the floor is UF-B cable (or wire in conduit), strapped to the joists and protected where it could be hit.',
     'GFCI: every circuit with a receptacle is shown on a GFCI breaker, 120V and 240V, including the ceiling receptacles for the lights. Recent NEC editions require GFCI on receptacles in accessory buildings. Motors can nuisance-trip some GFCIs; ask the inspector.',
     'Outbuilding feeder: 4 wires (2 hots, neutral, ground). Keep neutral and ground separate in the shed panel, and drive a grounding electrode (ground rods) at the shed. The shed panel\'s main breaker serves as the building disconnect.',
     'The 50A feeder needs about 6 AWG copper. The existing wire is unverified, so check its size and type before relying on 50A.',
@@ -2534,22 +2723,97 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
 
   var picker = document.getElementById('layout-file');
   picker.addEventListener('change', function () { if (picker.files[0]) openFile(picker.files[0]); picker.value = ''; });
-  document.getElementById('f-save').addEventListener('click', saveFile);
-  document.getElementById('f-open').addEventListener('click', function () { picker.click(); });
+  document.getElementById('f-save').addEventListener('click', function () { if (sync.on) saveDialog(); else saveFile(); });
+  document.getElementById('f-open').addEventListener('click', function () { if (sync.on) openDialog(); else picker.click(); });
+
+  /* ---- save / open: in the server version, ask whether to use this computer or the shop server ---- */
+  var dlg = document.getElementById('dlg'), dlgBody = document.getElementById('dlg-body');
+  function showDialog(html) { dlgBody.innerHTML = html; if (!dlg.open) dlg.showModal(); return dlgBody; }
+  function closeDialog() { if (dlg.open) dlg.close(); }
+  dlg.addEventListener('click', function (e) { if (e.target === dlg) closeDialog(); });   // click on the backdrop
+  function on(el, sel, fn) { var n = el.querySelector(sel); if (n) n.addEventListener('click', fn); }
+  function whenText(t) { try { return new Date(t).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }); } catch (e) { return ''; } }
+  function api(method, path, body) {
+    return fetch(path, { method: method, cache: 'no-store', headers: body ? { 'Content-Type': 'application/json' } : {}, body: body ? JSON.stringify(body) : undefined })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.json(); });
+  }
+  function saveDialog() {
+    var b = showDialog('<h2 id="dlg-title">Save layout</h2><p>Where should this layout be saved?</p>' +
+      '<div class="row"><button type="button" class="primary" id="d-srv">Shop server</button><button type="button" id="d-pc">This computer</button></div>' +
+      '<div class="foot"><button type="button" id="d-x">Cancel</button></div>');
+    on(b, '#d-x', closeDialog);
+    on(b, '#d-pc', function () { closeDialog(); saveFile(); });
+    on(b, '#d-srv', serverSave);
+  }
+  function serverSave() {
+    api('GET', 'api/layouts').then(function (list) {
+      var names = list.map(function (x) { return x.name; });
+      var def = 'Layout ' + new Date().toISOString().slice(0, 10);
+      var b = showDialog('<h2 id="dlg-title">Save to the shop server</h2><p>Name it, or pick one below to replace it.</p>' +
+        '<input id="d-name" maxlength="80" aria-label="Layout name" value="' + esc(def) + '">' +
+        (list.length ? '<ul>' + list.map(function (x, i) { return '<li><span class="nm" data-i="' + i + '">' + esc(x.name) + '</span><span class="when">' + esc(whenText(x.savedAt)) + '</span></li>'; }).join('') + '</ul>' : '') +
+        '<div class="foot"><button type="button" id="d-x">Cancel</button><button type="button" class="primary" id="d-ok">Save</button></div>');
+      var inp = b.querySelector('#d-name'), ok = b.querySelector('#d-ok');
+      function label() { ok.textContent = names.indexOf(inp.value.trim()) >= 0 ? 'Replace' : 'Save'; }
+      inp.addEventListener('input', label); label();
+      inp.focus(); inp.select();
+      b.querySelectorAll('.nm').forEach(function (n) { n.addEventListener('click', function () { inp.value = list[+n.getAttribute('data-i')].name; label(); }); });
+      on(b, '#d-x', closeDialog);
+      function go() {
+        var nm = inp.value.trim();
+        if (!nm) { inp.focus(); return; }
+        api('PUT', 'api/layouts/' + encodeURIComponent(nm), { layout: collect() })
+          .then(function () { closeDialog(); toast('Saved “' + nm + '” to the shop server.'); })
+          .catch(function () { toast('Couldn\'t save to the shop server.', true); });
+      }
+      ok.addEventListener('click', go);
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+    }).catch(function () { closeDialog(); toast('Can\'t reach the shop server.', true); });
+  }
+  function openDialog() {
+    var b = showDialog('<h2 id="dlg-title">Open layout</h2><p>Open from where?</p>' +
+      '<div class="row"><button type="button" class="primary" id="d-srv">Shop server</button><button type="button" id="d-pc">This computer</button></div>' +
+      '<div class="foot"><button type="button" id="d-x">Cancel</button></div>');
+    on(b, '#d-x', closeDialog);
+    on(b, '#d-pc', function () { closeDialog(); picker.click(); });
+    on(b, '#d-srv', serverOpen);
+  }
+  function serverOpen() {
+    api('GET', 'api/layouts').then(function (list) {
+      var b = showDialog('<h2 id="dlg-title">Layouts on the shop server</h2>' +
+        (list.length ? '<p>Opening one replaces the current layout for every device. Ctrl+Z undoes it.</p><ul>' + list.map(function (x, i) {
+          return '<li><span class="nm" data-open="' + i + '">' + esc(x.name) + '</span><span class="when">' + esc(whenText(x.savedAt)) + '</span>' +
+            '<button type="button" data-open="' + i + '">Open</button><button type="button" data-del="' + i + '" aria-label="Delete ' + esc(x.name) + '">Delete</button></li>';
+        }).join('') + '</ul>' : '<p class="empty">No layouts saved on the server yet. Use Save, then Shop server.</p>') +
+        '<div class="foot"><button type="button" id="d-x">Close</button></div>');
+      on(b, '#d-x', closeDialog);
+      b.querySelectorAll('[data-open]').forEach(function (n) {
+        n.addEventListener('click', function () {
+          var x = list[+n.getAttribute('data-open')];
+          api('GET', 'api/layouts/' + encodeURIComponent(x.name)).then(function (doc) {
+            var before = snap(); applyLayout(doc.layout); commit(before);
+            closeDialog(); toast('Opened “' + x.name + '”.');
+          }).catch(function () { toast('Couldn\'t open that layout.', true); });
+        });
+      });
+      b.querySelectorAll('[data-del]').forEach(function (n) {
+        n.addEventListener('click', function () {
+          var x = list[+n.getAttribute('data-del')];
+          if (n.textContent !== 'Sure?') { n.textContent = 'Sure?'; return; }
+          api('DELETE', 'api/layouts/' + encodeURIComponent(x.name)).then(serverOpen)
+            .catch(function () { toast('Couldn\'t delete that layout.', true); });
+        });
+      });
+    }).catch(function () { closeDialog(); toast('Can\'t reach the shop server.', true); });
+  }
   document.getElementById('f-default').addEventListener('click', function () {
     var before = snap(); applyLayout(null); commit(before);
     document.getElementById('more').open = false;
     toast('Back to the default layout. Ctrl+Z to undo.');
   });
-  document.getElementById('add110').addEventListener('click', function () { addNew('110'); });
-  document.getElementById('add220').addEventListener('click', function () { addNew('220'); });
-  document.getElementById('addsp').addEventListener('click', function () { addNew('sp'); });
-  document.getElementById('add3w').addEventListener('click', function () { addNew('3w'); });
-  document.getElementById('addlight').addEventListener('click', function () { addNew('light'); });
-  document.getElementById('adddrop').addEventListener('click', function () { addNew('drop'); });
+  renderLibrary();
   document.addEventListener('click', function (e) {
-    var more = document.getElementById('more');
-    if (more.open && !more.contains(e.target)) more.open = false;
+    ['more', 'lib'].forEach(function (id) { var d = document.getElementById(id); if (d.open && !d.contains(e.target)) d.open = false; });
   });
   document.getElementById('sel-close').addEventListener('click', function () { select(null); });
   document.getElementById('sel-rot').addEventListener('click', rotateSel);
@@ -2561,8 +2825,8 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); if (!drag) redo(); return; }
     if (mod) return;
     if (k === 'r' && selected && !drag) { rotateSel(); e.preventDefault(); }
-    if ((e.key === 'Delete' || e.key === 'Backspace') && selected && isDev(selected) && !drag) { deleteSel(); e.preventDefault(); }
-    if (e.key === 'Escape') { select(null); document.getElementById('more').open = false; }
+    if ((e.key === 'Delete' || e.key === 'Backspace') && selected && !drag) { deleteSel(); e.preventDefault(); }
+    if (e.key === 'Escape') { select(null); document.getElementById('more').open = false; document.getElementById('lib').open = false; }
   });
 
   /* ---- pointer: pick, drag on the floor or along walls ---- */
@@ -2576,7 +2840,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }
   function pick() {
     if (!mGroup.visible) return null;
-    var hits = ray.intersectObjects(items, true), first = null, firstD = 0;
+    var hits = ray.intersectObjects(items.filter(function (g) { return g.visible; }), true), first = null, firstD = 0;
     for (var i = 0; i < hits.length; i++) {
       if (!hits[i].object.isMesh) continue;
       var o = hits[i].object;
@@ -2607,14 +2871,18 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     });
     return best;
   }
+  // A press on the selected piece drags it. Any other press orbits the view; if it lets go without moving,
+  // it was a click: select what's under the pointer (or clear the selection on empty space).
+  var press = null, CLICK_PX = 5;
   stage.addEventListener('pointerdown', function (e) {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (drag) return;
     aim(e);
     var g = pick();
-    if (!g) return;
+    press = { id: e.pointerId, x: e.clientX, y: e.clientY, g: g, moved: false };
+    if (!g || g !== selected) return;
     e.stopPropagation(); e.preventDefault();
-    select(g);
+    press = null;
     var start = boxOf(g), ign = items.filter(function (o) { return o !== g && !isWall(o) === !isWall(g) && hit3(start, isWall(g) ? boxOf(o) : flat(boxOf(o))); });
     drag = { g: g, id: e.pointerId, before: snap(), o: obstacles(g, ign), ign: ign };
     if (isRoof(g)) {
@@ -2635,7 +2903,11 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }, true);
   window.addEventListener('pointermove', function (e) {
     if (!drag) {
-      if (e.pointerType === 'mouse' && e.target === renderer.domElement) { aim(e); stage.style.cursor = pick() ? 'grab' : ''; }
+      if (press && e.pointerId === press.id && Math.hypot(e.clientX - press.x, e.clientY - press.y) > CLICK_PX) press.moved = true;
+      if (!press && e.pointerType === 'mouse' && e.target === renderer.domElement) {
+        aim(e); var h = pick();
+        stage.style.cursor = h ? (h === selected ? 'grab' : 'pointer') : '';
+      }
       return;
     }
     if (e.pointerId !== drag.id) return;
@@ -2644,7 +2916,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (isRoof(g)) {
       if (!ray.ray.intersectPlane(drag.plane, hitP)) return;
       var tx = Math.round(hitP.x + drag.ox), tz = Math.round(hitP.z + drag.oz - 48 + HL) - HL + 48;
-      var half = g.userData.dev === 'light' ? 48 : 2;
+      var half = g.userData.dev === 'light' ? 48 : 6;
       if (g.userData.dev !== 'light') tz = Math.round(hitP.z + drag.oz);
       if (Math.abs(tx) < 6) tx = (tx < 0 || (tx === 0 && g.position.x < 0)) ? -6 : 6;
       tx = Math.max(-HW + 6, Math.min(HW - 6, tx)); tz = Math.max(-HL + half, Math.min(HL - half, tz));
@@ -2695,8 +2967,14 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     commit(before);
     if (wiringOn) buildWiring();
   }
-  window.addEventListener('pointerup', endDrag);
-  window.addEventListener('pointercancel', endDrag);
+  window.addEventListener('pointerup', function (e) {
+    if (press && e.pointerId === press.id) {
+      var p = press; press = null;
+      if (!p.moved && Math.hypot(e.clientX - p.x, e.clientY - p.y) <= CLICK_PX) select(p.g);
+    }
+    endDrag(e);
+  });
+  window.addEventListener('pointercancel', function (e) { if (press && e.pointerId === press.id) press = null; endDrag(e); });
 
   setView('over');
   syncHistory();

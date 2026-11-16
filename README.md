@@ -76,5 +76,11 @@ Then start it with `docker compose up -d crack-shack` and open `http://<server>:
 
 - The layout is stored in `./crack-shack-data/layout.json`. Back up that file to keep the layout safe.
 - The container runs as uid 1000. If the folder was created by root, run `sudo chown 1000:1000 crack-shack-data`.
-- File > Save and Load still work for keeping extra layouts.
+- Save and Open ask whether to use this computer (a .json file) or the shop server. Layouts saved to the server are kept in `./crack-shack-data/layouts/` and can be opened from any device.
 - There is no login. Anyone who can reach the port can edit, so expose it only on the LAN or tailnet.
+
+## Using it
+
+- Click a piece to select it, then drag it to move it. Dragging anywhere else orbits the view.
+- Library (top bar) adds any piece: machines, TVs and wall pieces, outlets, switches, floor boxes, the panel, strip lights and focus lights. To remove a piece, select it and press Delete.
+- Electrical, Lights and Wall items on the top bar show or hide those layers. Electrical (outlets, switches, floor boxes, panel) is hidden by default and turns on with Wiring.
