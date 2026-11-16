@@ -95,6 +95,12 @@
     padding: 12px 14px; display: flex; flex-direction: column; gap: 10px;
     box-shadow: 0 6px 24px rgba(0,0,0,.12);
   }
+  .menu .specs { display: grid; gap: 4px; margin: 4px 0 10px; }
+  .menu .specs label { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 13px; color: var(--ink); cursor: help; }
+  .menu .specs .in { display: inline-flex; align-items: center; gap: 4px; }
+  .menu .specs input { width: 76px; font: 500 13px var(--font-body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; text-align: right; }
+  .menu .specs i { font-style: normal; color: var(--muted); width: 18px; font-size: 12px; }
+  #lighting .menu { width: min(320px, calc(100vw - 32px)); max-height: calc(100vh - 140px); overflow: auto; }
   .menu.lib { width: min(330px, calc(100vw - 32px)); right: -4px; left: auto; }
   .menu.lib .toggles button { text-align: left; }
   dialog#dlg {
@@ -280,7 +286,8 @@
         <div class="toggles">
           <button type="button" id="lamps" aria-pressed="true">Shop lights: on</button>
         </div>
-        <p>Daytime, dusk and night turn off the even light. Sun or moon comes through the windows, and the strip and focus lights light the shop when they're on.</p>
+        <p>Daytime, dusk and night turn off the even light and use real light levels: sun or moon through the windows, the fixtures below, light bounced off the walls and ceiling, and an exposure that adjusts like your eyes.</p>
+        <div id="fx-specs"></div>
       </div>
     </details>
     <details class="more" id="lib">
@@ -1361,11 +1368,22 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
 </script>
 
 <script>
+  // Every "Lambert" surface becomes a physically based one. Roughness and metalness are guessed from the color:
+  // light/mid grays are machined steel or cast iron (some shine), near-black is paint or rubber, everything else is matte.
   (function () {
-    var Phong = THREE.MeshPhongMaterial;
+    var Std = THREE.MeshStandardMaterial;
     THREE.MeshLambertMaterial = function (p) {
-      p = p || {}; if (p.specular === undefined) p.specular = 0x000000; if (p.shininess === undefined) p.shininess = 1;
-      return new Phong(p);
+      p = p || {};
+      var rough = 0.85, metal = 0;
+      if (p.vertexColors) rough = 0.75;                                  // pine boards
+      else if (p.color !== undefined && !p.map) {
+        var hsl = {}; new THREE.Color(p.color).getHSL(hsl);
+        if (hsl.s < 0.12 && hsl.l > 0.3 && hsl.l < 0.82) { rough = 0.42; metal = 0.12; }
+        else if (hsl.l < 0.12) rough = 0.6;
+      }
+      if (p.roughness === undefined) p.roughness = rough;
+      if (p.metalness === undefined) p.metalness = metal;
+      return new Std(p);
     };
   })();
 (function () {
@@ -1789,6 +1807,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   function wallState(w, a, y) { var p = wallPos(w, a, y); return { w: w, a: a, y: y, x: p[0], z: p[2], r: WALLS[w].r }; }
   function apply(g, st) {
     if (g.userData.outlet) pineDirty = true;
+    shadowsNeed = true;
     if (g.userData.mount === 'roof') {
       var ls = roofState(g, st.x, st.z);
       g.userData.r = 0;
@@ -1978,7 +1997,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     items.push(g); byId[id] = g; mGroup.add(g);
     return g;
   }
-  function removeItem(g) { if (g.userData.outlet) pineDirty = true; mGroup.remove(g); items.splice(items.indexOf(g), 1); delete byId[g.userData.machine.id]; }
+  function removeItem(g) { shadowsNeed = true; if (g.userData.outlet) pineDirty = true; mGroup.remove(g); items.splice(items.indexOf(g), 1); delete byId[g.userData.machine.id]; }
 
   /* ---- circuits ---- */
   function circuitById(id) { for (var i = 0; i < circuits.length; i++) if (circuits[i].id === id) return circuits[i]; return null; }
@@ -2016,6 +2035,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       out[id] = e;
     });
     out.__circuits = JSON.parse(JSON.stringify(circuits));
+    out.__lights = JSON.parse(JSON.stringify(fxSpecs));
     out.__v = 4;                                  // v4: every piece is listed; a missing piece was deleted
     return out;
   }
@@ -2110,6 +2130,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     circuits = saved && Array.isArray(saved.__circuits) && saved.__circuits.length
       ? JSON.parse(JSON.stringify(saved.__circuits)) : JSON.parse(JSON.stringify(DEF_CIRCUITS));
     circuits.forEach(function (c) { c.name = String(c.name).replace(/ceiling drop/i, 'floor box'); });
+    setSpecs(saved && saved.__lights);
     entries.forEach(function (en) {
       var e = en.e;
       if (en.dev) {
@@ -2483,7 +2504,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     });
     if (selected && !selected.visible) select(null);
   }
-  function setVis(k, on) { vis[k] = on; refreshVis(); }
+  function setVis(k, on) { vis[k] = on; refreshVis(); shadowsNeed = true; }
 
   /* ---- interior finishes: ceiling sheetrock and pine wall boards (display only) ---- */
   var finish = { rock: false, pine: false }, pineGroup = new THREE.Group(), pineDirty = true;
@@ -2517,7 +2538,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     return out;
   }
   function buildPine() {
-    pineDirty = false;
+    pineDirty = false; shadowsNeed = true;
     while (pineGroup.children.length) { var c0 = pineGroup.children.pop(); c0.geometry.dispose(); }
     Object.keys(PINE_WALLS).forEach(function (w) {
       var P = PINE_WALLS[w], cuts = pineCuts(w), pos = [], col = [];
@@ -2557,6 +2578,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
           });
           if (lo < b1) segs.push([lo, b1]);
           var shade = PINE[((r * 7 + idx * 3) % PINE.length + PINE.length) % PINE.length];
+          if (linear) shade = shade.map(function (v) { return Math.pow(v, 2.2); });
           segs.forEach(function (sg) {
             var h0 = Math.min(sg[1], tp), h1 = Math.min(sg[1], tq);
             if (h0 <= sg[0] + 0.02 && h1 <= sg[0] + 0.02) return;
@@ -2572,6 +2594,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     });
   }
   function setFinish(k, on) {
+    shadowsNeed = true;
     finish[k] = on;
     if (k === 'rock') shed.layers.ceiling.visible = on;
     if (k === 'pine') { pineGroup.visible = on; if (on && pineDirty) buildPine(); }
@@ -2583,15 +2606,109 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   });
   pineGroup.visible = false;
 
-  /* ---- lighting scenes: even studio light, or day / dusk-dawn / night with shadows and working shop lights ---- */
-  var sceneMode = 'studio', lampsOn = true, rig = new THREE.Group(), rigKey = '', shadowTick = 0;
+  /* ================= lighting =================
+     Even light: the old flat look. Day, dusk/dawn and night switch to real units: illuminance in lux, fixtures
+     in lumens, physical inverse-square falloff, and a camera exposure that adapts like your eyes do.
+     Scene units are inches; point and spot intensities are scaled by 1550 (in² per m²) so 1 unit of light = 1 candela. */
+  var IN2M2 = 1550;
+  var sceneMode = 'studio', lampsOn = true, rig = new THREE.Group(), rigKey = null, shadowTick = 0, shadowsNeed = true;
   scene.add(rig);
+  renderer.shadowMap.autoUpdate = false;                 // shadows are recomputed only after something changes
   var SCENES = {
     studio: { bg: null, hemi: [0xffffff, 0x8f7c5c, 0.95], sun: [0xfff2dc, 0.55, [220, 420, -160]], fill: 0.35, shadow: false, glass: [0xbfe3f2, 0.38] },
-    day:    { bg: 0xa9cbe8, hemi: [0xd7e6ff, 0x8a7a5a, 0.6], sun: [0xfff3df, 0.95, [320, 270, -130]], fill: 0, shadow: true, glass: [0xd8eefa, 0.3] },
-    dusk:   { bg: 0xd99c7a, hemi: [0x8e8fb8, 0x3b3040, 0.22], sun: [0xff9550, 0.8, [-430, 85, 140]], fill: 0, shadow: true, glass: [0xf3b58c, 0.4] },
-    night:  { bg: 0x0b1222, hemi: [0x24345a, 0x0a0a12, 0.05], sun: [0x9fb4ff, 0.05, [-200, 320, 220]], fill: 0, shadow: false, glass: [0x0f1830, 0.65] }
+    // lux: sun = direct sun, skyIn = daylight inside through the windows, skyOut = sky light outside
+    day:   { bg: 0xa9cbe8, hemi: [0xd7e6ff, 0x8a7a5a], sun: [0xfff3df, 0, [320, 270, -130]], shadow: true, glass: [0xd8eefa, 0.3], lux: { sun: 60000, skyIn: 450, skyOut: 12000 } },
+    dusk:  { bg: 0xd99c7a, hemi: [0x8e8fb8, 0x3b3040], sun: [0xff9550, 0, [-430, 85, 140]], shadow: true, glass: [0xf3b58c, 0.4], lux: { sun: 700, skyIn: 18, skyOut: 350 } },
+    night: { bg: 0x0b1222, hemi: [0x24345a, 0x0a0a12], sun: [0x9fb4ff, 0, [-200, 320, 220]], shadow: false, glass: [0x0f1830, 0.65], lux: { sun: 0.15, skyIn: 0.03, skyOut: 0.25 } }
   };
+
+  /* ---- fixture specs (saved with the layout, so every device sees the same lights) ---- */
+  var DEF_SPECS = { strip: { lm: 9000, k: 5000, beam: 120, soft: 60, up: 0 }, spot: { lm: 1600, k: 3000, beam: 60, soft: 25 } };
+  var SPEC_FIELDS = {
+    strip: [
+      ['lm', 'Light output', 'lm', 500, 30000, 100, 'Lumens, printed on the box. 8′ LED shop lights are usually 7,000–12,000.'],
+      ['k', 'Color temperature', 'K', 2200, 6500, 100, '3000K is warm, 4000K neutral, 5000K daylight white.'],
+      ['beam', 'Beam angle', '°', 30, 170, 5, 'From the spec sheet. Flat or frosted lens ≈ 120°, V-shape ≈ 150°, reflector troffer ≈ 90°.'],
+      ['soft', 'Edge softness', '%', 0, 100, 5, 'How gradually the light fades at the edge of the beam. LED strips are soft (50–70%).'],
+      ['up', 'Uplight', '%', 0, 40, 1, 'Share of light going up. Open-top or bare-LED strips put out 5–15%; closed housings 0%.']
+    ],
+    spot: [
+      ['lm', 'Light output', 'lm', 100, 10000, 50, 'Lumens of the bulb. A "100 W equivalent" LED is about 1,600.'],
+      ['k', 'Color temperature', 'K', 2200, 6500, 100, '2700–3000K is warm, 4000K neutral, 5000K daylight white.'],
+      ['beam', 'Beam angle', '°', 10, 150, 5, 'Set by the shade. A 10–12″ metal dome gives about 60°; a deep shade 40°.'],
+      ['soft', 'Edge softness', '%', 0, 100, 5, 'A metal shade gives a fairly crisp edge (20–30%).']
+    ]
+  };
+  var fxSpecs = JSON.parse(JSON.stringify(DEF_SPECS));
+  function setSpecs(src) {
+    fxSpecs = JSON.parse(JSON.stringify(DEF_SPECS));
+    ['strip', 'spot'].forEach(function (t) {
+      if (!src || !src[t]) return;
+      SPEC_FIELDS[t].forEach(function (f) { var v = +src[t][f[0]]; if (isFinite(v)) fxSpecs[t][f[0]] = Math.max(f[3], Math.min(f[4], v)); });
+    });
+    rigKey = null;
+    renderSpecs();
+  }
+  function renderSpecs() {
+    var el = document.getElementById('fx-specs'); if (!el) return;
+    el.innerHTML = [['strip', '8′ strip lights'], ['spot', 'Focus lights']].map(function (t) {
+      return '<h2>' + t[1] + '</h2><div class="specs">' + SPEC_FIELDS[t[0]].map(function (f) {
+        return '<label title="' + esc(f[6]) + '"><span>' + esc(f[1]) + '</span><span class="in"><input type="number" inputmode="decimal" data-spec="' + t[0] + ':' + f[0] +
+          '" min="' + f[3] + '" max="' + f[4] + '" step="' + f[5] + '" value="' + fxSpecs[t[0]][f[0]] + '"><i>' + f[2] + '</i></span></label>';
+      }).join('') + '</div>';
+    }).join('') + '<p>Hover a field for where to find the number. These are saved with the layout.</p>' +
+      '<div class="toggles"><button type="button" id="fx-reset">Reset to typical values</button></div>';
+    el.querySelectorAll('[data-spec]').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        var k = inp.getAttribute('data-spec').split(':'), f = SPEC_FIELDS[k[0]].filter(function (x) { return x[0] === k[1]; })[0];
+        var v = Math.max(f[3], Math.min(f[4], +inp.value));
+        if (!isFinite(v)) { inp.value = fxSpecs[k[0]][k[1]]; return; }
+        inp.value = v;
+        if (v === fxSpecs[k[0]][k[1]]) return;
+        var before = snap(); fxSpecs[k[0]][k[1]] = v; rigKey = null; commit(before);
+      });
+    });
+    document.getElementById('fx-reset').addEventListener('click', function () {
+      var before = snap(); setSpecs(null); commit(before);
+    });
+  }
+
+  // blackbody color temperature → RGB (Tanner Helland's fit)
+  function kelvin(k) {
+    var t = k / 100, r, g, b;
+    if (t <= 66) { r = 255; g = 99.4708025861 * Math.log(t) - 161.1195681661; b = t <= 19 ? 0 : 138.5177312231 * Math.log(t - 10) - 305.0447927307; }
+    else { r = 329.698727446 * Math.pow(t - 60, -0.1332047592); g = 288.1221695283 * Math.pow(t - 60, -0.0755148492); b = 255; }
+    function c(v) { return Math.max(0, Math.min(255, v)) / 255; }
+    return new THREE.Color(c(r), c(g), c(b));
+  }
+  // candela of a cone that puts lm lumens into a beam of full angle `beam`; softness widens the effective edge
+  function candela(lm, beam, soft) {
+    var half = beam / 2 * Math.PI / 180 * (1 - soft / 200);
+    return lm / (2 * Math.PI * (1 - Math.cos(half)));
+  }
+
+  /* ---- surfaces: how much light the room bounces back, and its tint ---- */
+  var A_FLOOR = (185 * 328) / IN2M2;                    // m²
+  function room() {
+    // areas in m² (floor, walls to the ceiling line, ceiling) and reflectances of what's on them
+    var floor = A_FLOOR, walls = 63, ceil = 45;
+    var rf = 0.35, rw = finish.pine ? 0.45 : 0.3, rc = finish.rock ? 0.8 : 0.28;
+    var cf = new THREE.Color(0xa9966f), cw = new THREE.Color(finish.pine ? 0xd8b07a : 0xb98a52), cc = new THREE.Color(finish.rock ? 0xeceae4 : 0xb98a52);
+    var A = floor + walls + ceil, rho = (floor * rf + walls * rw + ceil * rc) / A;
+    var tint = new THREE.Color(0, 0, 0);
+    [[cf, floor * rf], [cw, walls * rw], [cc, ceil * rc]].forEach(function (x) { tint.r += x[0].r * x[1]; tint.g += x[0].g * x[1]; tint.b += x[0].b * x[1]; });
+    var m = Math.max(tint.r, tint.g, tint.b) || 1; tint.multiplyScalar(1 / m);
+    return { A: A, rho: rho, tint: tint };
+  }
+  function fixtureLumens() {
+    if (!lampsOn) return 0;
+    var lm = 0;
+    items.forEach(function (g) { if (g.userData.dev === 'light') lm += fxSpecs.strip.lm; else if (g.userData.dev === 'spot') lm += fxSpecs.spot.lm; });
+    return lm;
+  }
+  // interreflection: a room of total area A and average reflectance rho gives back E = Φ·rho / (A·(1 − rho))
+  function bounceLux() { var R = room(); return { lux: fixtureLumens() * R.rho / (R.A * (1 - R.rho)), tint: R.tint }; }
+
   function eachMat(fn) {
     scene.traverse(function (o) {
       if (!o.material) return;
@@ -2599,61 +2716,145 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     });
   }
   function castShadows() {
-    var on = SCENES[sceneMode].shadow;
+    var on = sceneMode !== 'studio', changed = false;
     [shed.root, mGroup, pineGroup].forEach(function (root) {
       root.traverse(function (o) {
         if (!o.isMesh) return;
-        var solid = !o.material.transparent && !o.material.isMeshBasicMaterial;
-        o.castShadow = on && solid; o.receiveShadow = on && solid;
+        var solid = on && !o.material.transparent && !o.material.isMeshBasicMaterial;
+        if (o.castShadow !== solid || o.receiveShadow !== solid) { o.castShadow = solid; o.receiveShadow = solid; changed = true; }
       });
+    });
+    if (changed) shadowsNeed = true;
+  }
+  // Colors in the model are display (sRGB) values. Real-unit lighting works in linear light, so in those scenes every
+  // color and texture is converted and the final image is encoded back to sRGB; Even light uses them as they are.
+  var linear = false;
+  function setColor(m, hex) { m.color.setHex(hex); if (linear) m.color.convertSRGBToLinear(); }
+  function colorPass(force) {
+    eachMat(function (m) {
+      if (!m.color) return;
+      if (m.userData.srgb === undefined) m.userData.srgb = m.color.getHex();
+      if (!force && m.userData.lin === linear) return;
+      setColor(m, m.userData.srgb); m.userData.lin = linear;
+      if (m.map) { var enc = linear ? THREE.sRGBEncoding : THREE.LinearEncoding; if (m.map.encoding !== enc) { m.map.encoding = enc; m.map.needsUpdate = true; m.needsUpdate = true; } }
     });
   }
   function lampColors() {
-    eachMat(function (m) { if (m.userData.lamp) m.color.setHex(lampsOn ? m.userData.lamp : 0x8d8f8f); });
+    eachMat(function (m) { if (m.userData.lamp) { m.userData.srgb = lampsOn ? m.userData.lamp : 0x8d8f8f; setColor(m, m.userData.srgb); } });
   }
+  // UI overlays and self-lit things keep their own color; everything else goes through exposure and tone mapping
+  function overlayFlags() {
+    eachMat(function (m) { if (m.isSpriteMaterial || m.depthTest === false || m.userData.glass || m.userData.lamp) m.toneMapped = false; });
+  }
+  var bounce = new THREE.AmbientLight(0xffffff, 0);
+  scene.add(bounce);
   function applyScene() {
-    var S = SCENES[sceneMode];
+    var S = SCENES[sceneMode], phys = sceneMode !== 'studio';
+    if (renderer.physicallyCorrectLights !== phys) {
+      renderer.physicallyCorrectLights = phys;
+      renderer.toneMapping = phys ? THREE.ACESFilmicToneMapping : THREE.NoToneMapping;
+      renderer.outputEncoding = phys ? THREE.sRGBEncoding : THREE.LinearEncoding;
+      linear = phys; pineDirty = true;
+      eachMat(function (m) { m.needsUpdate = true; });
+    }
+    colorPass();
+    if (!phys) renderer.toneMappingExposure = 1;
     if (S.bg === null) { var bg = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#e6eae7'; scene.background = new THREE.Color(bg); }
     else scene.background = new THREE.Color(S.bg);
-    hemi.color.setHex(S.hemi[0]); hemi.groundColor.setHex(S.hemi[1]); hemi.intensity = S.hemi[2];
-    sun.color.setHex(S.sun[0]); sun.intensity = S.sun[1]; sun.position.set(S.sun[2][0], S.sun[2][1], S.sun[2][2]);
+    hemi.color.setHex(S.hemi[0]); hemi.groundColor.setHex(S.hemi[1]);
+    sun.color.setHex(S.sun[0]); sun.position.set(S.sun[2][0], S.sun[2][1], S.sun[2][2]);
+    if (phys) [hemi.color, hemi.groundColor, sun.color].forEach(function (c) { c.convertSRGBToLinear(); });
+    if (!phys) { hemi.intensity = S.hemi[2]; sun.intensity = S.sun[1]; fill.intensity = S.fill; bounce.intensity = 0; }
+    else { sun.intensity = S.lux.sun; fill.intensity = 0; }
     sun.castShadow = S.shadow;
-    fill.intensity = S.fill;
-    eachMat(function (m) { if (m.userData.glass) { m.color.setHex(S.glass[0]); m.opacity = S.glass[1]; } });
-    castShadows(); lampColors(); rigKey = null;
+    eachMat(function (m) { if (m.userData.glass) { m.userData.srgb = S.glass[0]; setColor(m, S.glass[0]); m.opacity = S.glass[1]; } });
+    overlayFlags(); castShadows(); lampColors(); rigKey = null; shadowsNeed = true;
     Array.prototype.forEach.call(document.querySelectorAll('[data-scene]'), function (b) { b.setAttribute('aria-pressed', b.getAttribute('data-scene') === sceneMode ? 'true' : 'false'); });
     var lb = document.getElementById('lamps'); if (lb) { lb.setAttribute('aria-pressed', lampsOn ? 'true' : 'false'); lb.textContent = lampsOn ? 'Shop lights: on' : 'Shop lights: off'; }
     try { localStorage.setItem('shed-light-v1', JSON.stringify({ mode: sceneMode, lamps: lampsOn })); } catch (e) {}
   }
-  // light sources at each fixture: two points along a strip light, a downward spot under a focus light
+
+  /* ---- light sources at the fixtures ----
+     Strip: three downward cones spread along the 8′ length (the footprint is long, like the real light), plus an
+     optional upward cone for uplight. Focus light: one cone shaped by the shade. Shadows go on the middle cone of each
+     strip and on each focus light, at most 8 in all (the graphics card has a limited number of shadow slots). */
+  var MAX_SHADOWS = 8;
+  function spotLight(color, cd, beam, soft, shadow) {
+    var L = new THREE.SpotLight(color.clone().convertSRGBToLinear(), cd * IN2M2, 0, Math.min(Math.PI / 2 - 0.01, beam / 2 * Math.PI / 180), soft / 100, 2);
+    if (shadow) {
+      L.castShadow = true;
+      L.shadow.mapSize.set(512, 512);
+      L.shadow.bias = -0.0015;
+      L.shadow.camera.near = 2; L.shadow.camera.far = 400;
+    }
+    rig.add(L); rig.add(L.target);
+    return L;
+  }
   function updateRig() {
     var emit = sceneMode !== 'studio' && lampsOn;
     var fx = emit ? items.filter(function (g) { return g.userData.dev === 'light' || g.userData.dev === 'spot'; }) : [];
-    var key = fx.map(function (g) { return g.userData.dev; }).join(',');
+    var key = JSON.stringify([fx.map(function (g) { return g.userData.dev; }), fxSpecs]);
     if (key !== rigKey) {
       while (rig.children.length) rig.remove(rig.children[0]);
+      var St = fxSpecs.strip, Sp = fxSpecs.spot, nShadow = 0, cs = kelvin(St.k), cp = kelvin(Sp.k);
       fx.forEach(function (g) {
+        var parts = [];
         if (g.userData.dev === 'light') {
-          [-26, 26].forEach(function () { rig.add(new THREE.PointLight(0xfff1dc, 0.2, 320, 2)); });
+          var down = St.lm * (1 - St.up / 100) / 3, cd = candela(down, St.beam, St.soft);
+          [-32, 0, 32].forEach(function (dz) {
+            var sh = dz === 0 && nShadow < MAX_SHADOWS; if (sh) nShadow++;
+            parts.push({ L: spotLight(cs, cd, St.beam, St.soft, sh), dz: dz, dy: -3, up: false });
+          });
+          if (St.up > 0) parts.push({ L: spotLight(cs, candela(St.lm * St.up / 100, 160, 50), 160, 50, false), dz: 0, dy: 0.5, up: true });
         } else {
-          var sp = new THREE.SpotLight(0xffe6bd, 0.7, 220, 0.62, 0.55, 2);
-          rig.add(sp); rig.add(sp.target);
+          var sh2 = nShadow < MAX_SHADOWS; if (sh2) nShadow++;
+          parts.push({ L: spotLight(cp, candela(Sp.lm, Sp.beam, Sp.soft), Sp.beam, Sp.soft, sh2), dz: 0, dy: -6.5, up: false });
         }
+        g.userData.rigParts = parts;
       });
-      rigKey = key;
+      rigKey = key; shadowsNeed = true;
+      fx.forEach(function (g) { g.userData.rigAt = null; });
     }
-    var i = 0;
     fx.forEach(function (g) {
-      var p = g.position;
-      if (g.userData.dev === 'light') { [-26, 26].forEach(function (dz) { rig.children[i++].position.set(p.x, p.y - 3, p.z + dz); }); }
-      else { rig.children[i].position.set(p.x, p.y - 7, p.z); rig.children[i + 1].position.set(p.x, 0, p.z); i += 2; }
+      var p = g.position, at = p.x + ',' + p.y + ',' + p.z;
+      if (g.userData.rigAt === at) return;
+      g.userData.rigAt = at; shadowsNeed = true;
+      g.userData.rigParts.forEach(function (q) {
+        q.L.position.set(p.x, p.y + q.dy, p.z + q.dz);
+        q.L.target.position.set(p.x, q.up ? p.y + 200 : 0, p.z + q.dz);
+        q.L.target.updateMatrixWorld();
+      });
     });
   }
-  function setScene(m) { sceneMode = m; applyScene(); }
+
+  /* ---- exposure that adapts like your eyes ----
+     Estimate the light level where you're looking (no pixel reading needed), then ease the exposure toward it.
+     Adaptation is partial and has a floor, so a dark night still looks dark and bright sun still looks bright. */
+  var expo = 1, lastT = 0;
+  function insideShed() { var c = camera.position; return Math.abs(c.x) < HW + 3 && Math.abs(c.z) < HL + 3 && c.y < SZ.RIDGE; }
+  function adapt(now) {
+    var dt = lastT ? Math.min(0.25, (now - lastT) / 1000) : 0; lastT = now;
+    if (sceneMode === 'studio') return;
+    var S = SCENES[sceneMode], b = bounceLux();
+    var direct = fixtureLumens() * 0.5 / A_FLOOR;                      // average on the floor from the fixtures
+    var eIn = direct + b.lux + S.lux.skyIn, eOut = S.lux.skyOut + S.lux.sun * 0.25;
+    var inside = insideShed();
+    var E = inside ? eIn : Math.max(eIn, Math.pow(eIn, 0.7) * Math.pow(eOut, 0.3));   // looking in from outside: whichever is brighter
+    E = Math.max(8, Math.min(60000, E));
+    var eff = Math.pow(E, 0.85) * Math.pow(300, 0.15);
+    var target = 5 / eff;
+    expo = dt ? Math.exp(Math.log(expo) + (Math.log(target) - Math.log(expo)) * (1 - Math.exp(-dt / 0.7))) : target;
+    renderer.toneMappingExposure = expo;
+    // sky light: the daylight level inside when you're inside, the open sky outside
+    hemi.intensity = inside ? S.lux.skyIn : S.lux.skyOut;
+    bounce.color.copy(b.tint).convertSRGBToLinear(); bounce.intensity = b.lux;
+  }
+  function setScene(m) { sceneMode = m; applyScene(); lastT = 0; }
   Array.prototype.forEach.call(document.querySelectorAll('[data-scene]'), function (b) {
     b.addEventListener('click', function () { setScene(b.getAttribute('data-scene')); });
   });
   document.getElementById('lamps').addEventListener('click', function () { lampsOn = !lampsOn; applyScene(); });
+  renderSpecs();
   Array.prototype.forEach.call(document.querySelectorAll('[data-vis]'), function (b) {
     b.addEventListener('click', function () { var k = b.getAttribute('data-vis'); setVis(k, !vis[k]); });
   });
@@ -3457,8 +3658,10 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   (function loop() {
     if (finish.pine && pineDirty) buildPine();
     updateRig();
-    if (SCENES[sceneMode].shadow && ++shadowTick % 30 === 0) castShadows();     // pick up pieces added or rebuilt since
-    if (shadowTick % 30 === 0) lampColors();
+    if (++shadowTick % 10 === 0) colorPass();                                       // convert pieces added since
+    if (shadowTick % 30 === 0) { castShadows(); lampColors(); overlayFlags(); }   // pick up pieces added or rebuilt since
+    adapt(performance.now());
+    if (shadowsNeed && sceneMode !== 'studio') { renderer.shadowMap.needsUpdate = true; shadowsNeed = false; }
     updateRing();
     controls.update();
     renderer.render(scene, camera);
