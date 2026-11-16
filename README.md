@@ -82,6 +82,7 @@ Then start it with `docker compose up -d crack-shack` and open `http://<server>:
 ## Using it
 
 - Click a piece to select it, then drag it to move it. Dragging anywhere else orbits the view.
+- A selected floor piece gets a ring; drag its handle to turn the piece in 15° steps. R (or Rotate 90°) still turns it a quarter turn.
 - Library (top bar) adds any piece: machines, TVs and wall pieces, outlets, switches, floor boxes, the panel, strip lights and focus lights. To remove a piece, select it and press Delete.
 - Sheetrock (sloped ceiling plus the flat ceiling at the collar ties) and Pine walls (horizontal 1×6 boards, staggered 8′ joints, cut around windows, doors, outlets and switches) are display toggles on the top bar.
 - Floor items, Electrical, Lights and Wall items on the top bar show or hide those layers.

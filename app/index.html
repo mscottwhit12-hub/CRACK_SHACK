@@ -308,7 +308,7 @@
   <div class="wd-head"><h2>Wiring plan</h2><button type="button" id="wd-save">Save…</button><button type="button" class="x" id="wd-close" aria-label="Close wiring plan">×</button></div>
   <div id="wd-body"></div>
 </aside>
-<div class="hint">Click a piece to select it, then drag it to move · drag anywhere else to orbit · <kbd>R</kbd> rotate · <kbd>Del</kbd> delete · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</div>
+<div class="hint">Click a piece to select it, then drag it to move · drag anywhere else to orbit · <kbd>R</kbd> or the ring to rotate · <kbd>Del</kbd> delete · <kbd>Ctrl</kbd>+<kbd>Z</kbd> undo</div>
 <div class="toast" id="toast" role="status" hidden></div>
 <dialog id="dlg" aria-labelledby="dlg-title"><div id="dlg-body"></div></dialog>
 
@@ -1634,9 +1634,18 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     g.userData.top = all.max.y;
   }
   // rotate a local box by quarter turns r and move it to (x, y, z)
+  function isQuarter(r) { return Math.abs(r - Math.round(r)) < 1e-6; }
   function rot(L, x, y, z, r) {
     var o = { y0: y + L.y0, y1: y + L.y1 };
-    switch (((r % 4) + 4) % 4) {
+    if (!isQuarter(r)) {
+      // any other angle: keep the true footprint corners (c) for exact tests, plus the box around them
+      var th = r * Math.PI / 2, cs = Math.cos(th), sn = Math.sin(th);
+      o.c = [[L.x0, L.z0], [L.x1, L.z0], [L.x1, L.z1], [L.x0, L.z1]].map(function (p) { return [x + p[0] * cs + p[1] * sn, z - p[0] * sn + p[1] * cs]; });
+      o.x0 = Math.min.apply(null, o.c.map(function (p) { return p[0]; })); o.x1 = Math.max.apply(null, o.c.map(function (p) { return p[0]; }));
+      o.z0 = Math.min.apply(null, o.c.map(function (p) { return p[1]; })); o.z1 = Math.max.apply(null, o.c.map(function (p) { return p[1]; }));
+      return o;
+    }
+    switch (((Math.round(r) % 4) + 4) % 4) {
       case 0: o.x0 = x + L.x0; o.x1 = x + L.x1; o.z0 = z + L.z0; o.z1 = z + L.z1; break;
       case 1: o.x0 = x + L.z0; o.x1 = x + L.z1; o.z0 = z - L.x1; o.z1 = z - L.x0; break;
       case 2: o.x0 = x - L.x1; o.x1 = x - L.x0; o.z0 = z - L.z1; o.z1 = z - L.z0; break;
@@ -1651,8 +1660,28 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }
   function partsAt(g, x, y, z, r) { return g.userData.parts.map(function (P) { return rot(P, x, y, z, r); }); }
   function ov(a, b, ax) { return a[ax + '0'] < b[ax + '1'] - EPS && a[ax + '1'] > b[ax + '0'] + EPS; }
-  function hit3(a, b) { return ov(a, b, 'x') && ov(a, b, 'y') && ov(a, b, 'z'); }
-  function flat(b) { return { x0: b.x0, x1: b.x1, z0: b.z0, z1: b.z1, y0: -BIG, y1: BIG }; }
+  function hit3(a, b) {
+    if (!(ov(a, b, 'x') && ov(a, b, 'y') && ov(a, b, 'z'))) return false;
+    return (!a.c && !b.c) || sat(cornersOf(a), cornersOf(b));          // turned pieces: test the real footprints
+  }
+  function cornersOf(b) { return b.c || [[b.x0, b.z0], [b.x1, b.z0], [b.x1, b.z1], [b.x0, b.z1]]; }
+  // separating-axis test for two convex footprints in plan
+  function sat(P, Q) {
+    var polys = [P, Q];
+    for (var k = 0; k < 2; k++) {
+      var A = polys[k];
+      for (var i = 0; i < A.length; i++) {
+        var p1 = A[i], p2 = A[(i + 1) % A.length], nx = p2[1] - p1[1], nz = p1[0] - p2[0], l = Math.hypot(nx, nz);
+        if (l < 1e-9) continue; nx /= l; nz /= l;
+        var a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+        P.forEach(function (v) { var d = v[0] * nx + v[1] * nz; if (d < a0) a0 = d; if (d > a1) a1 = d; });
+        Q.forEach(function (v) { var d = v[0] * nx + v[1] * nz; if (d < b0) b0 = d; if (d > b1) b1 = d; });
+        if (a1 <= b0 + EPS || b1 <= a0 + EPS) return false;
+      }
+    }
+    return true;
+  }
+  function flat(b) { return { x0: b.x0, x1: b.x1, z0: b.z0, z1: b.z1, y0: -BIG, y1: BIG, c: b.c }; }
 
   /* ---- obstacle sets ---- */
   function obstacles(g, ignore) {
@@ -1735,7 +1764,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       return;
     }
     if (isWall(g)) { g.userData.wall = st.w; g.userData.a = st.a; g.userData.r = WALLS[st.w].r; }
-    else g.userData.r = ((st.r % 4) + 4) % 4;
+    else { var rr = Math.round(((st.r % 4) + 4) % 4 * 6) / 6; g.userData.r = rr >= 4 ? rr - 4 : rr; }   // 15° steps
     g.rotation.y = g.userData.r * Math.PI / 2;
     g.position.set(st.x, st.y || 0, st.z);
   }
@@ -1745,6 +1774,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     return Math.abs(a) <= Math.abs(b) ? a : b;
   }
   function snapFloor(g, x, z, r) {
+    if (!isQuarter(r)) return { x: Math.round(x), y: 0, z: Math.round(z), r: r };   // turned: center on the grid
     var B = boxAt(g, x, 0, z, r);
     return { x: x + snapAxis(B.x0, B.x1, -HW), y: 0, z: z + snapAxis(B.z0, B.z1, -HL), r: r };
   }
@@ -1801,6 +1831,17 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       return d;
     }
     for (var k = 0; k < 2; k++) { st.x += step('x', tx - st.x); st.z += step('z', tz - st.z); }
+    // box sweeps are conservative around turned pieces; creep the last inches with exact tests
+    for (var n = 0; n < 200; n++) {
+      var moved = false;
+      ['x', 'z'].forEach(function (ax) {
+        var d = (ax === 'x' ? tx : tz) - st[ax];
+        if (Math.abs(d) < 0.01) return;
+        var c = { x: st.x, y: 0, z: st.z, r: st.r }; c[ax] += Math.sign(d) * Math.min(1, Math.abs(d));
+        if (!blocked(g, c, o)) { st = c; moved = true; }
+      });
+      if (!moved) break;
+    }
     return st;
   }
   function slideWall(g, ta, ty, o) {
@@ -1934,7 +1975,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
       var id = g.userData.machine.id, s = stateOf(g), e;
       if (isRoof(g)) e = { k: g.userData.dev, x: +s.x.toFixed(3), z: +s.z.toFixed(3) };
       else if (isWall(g)) e = { w: s.w, a: +s.a.toFixed(3), y: +s.y.toFixed(3) };
-      else e = { x: +s.x.toFixed(3), z: +s.z.toFixed(3), r: s.r };
+      else e = { x: +s.x.toFixed(3), z: +s.z.toFixed(3), r: +s.r.toFixed(4) };
       if (g.userData.dev) e.k = g.userData.dev; else e.t = g.userData.machine.type;
       if (g.userData.c) e.c = g.userData.c;
       if (g.userData.params) e.p = JSON.parse(JSON.stringify(g.userData.params));
@@ -2148,6 +2189,52 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   selBox.material.depthTest = false; selBox.renderOrder = 4; selBox.visible = false;
   scene.add(selBox);
   var selected = null;
+
+  /* ---- rotate ring: shown around a selected floor piece; drag the handle to turn it in 15° steps ---- */
+  var ACC = 0x1c6b57;
+  var ringG = new THREE.Group(), ringR = 0, ringMesh = null, ringTicks = null;
+  ringG.visible = false; ringG.renderOrder = 9; scene.add(ringG);
+  function overlay(m) { m.renderOrder = 9; return m; }
+  var ringMat = new THREE.MeshBasicMaterial({ color: ACC, transparent: true, opacity: 0.8, depthTest: false, side: THREE.DoubleSide });
+  var tickMat = new THREE.LineBasicMaterial({ color: ACC, transparent: true, opacity: 0.8, depthTest: false });
+  var knob = overlay(new THREE.Mesh(new THREE.CircleGeometry(4.2, 32), new THREE.MeshBasicMaterial({ color: ACC, depthTest: false, side: THREE.DoubleSide })));
+  var knobDot = overlay(new THREE.Mesh(new THREE.CircleGeometry(1.8, 24), new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, side: THREE.DoubleSide })));
+  var knobHit = new THREE.Mesh(new THREE.CircleGeometry(10, 16), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false, side: THREE.DoubleSide }));
+  var spoke = overlay(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3(0, 0, 1)]), tickMat));
+  [knob, knobDot, knobHit].forEach(function (m) { m.rotation.x = -Math.PI / 2; ringG.add(m); });
+  knobDot.position.y = 0.05;
+  ringG.add(spoke);
+  function ringRadius(g) { var L = g.userData.lr; return Math.hypot(L.x1 - L.x0, L.z1 - L.z0) / 2 + 9; }
+  function buildRing(R) {
+    if (ringMesh) { ringG.remove(ringMesh); ringMesh.geometry.dispose(); ringG.remove(ringTicks); ringTicks.geometry.dispose(); }
+    ringMesh = overlay(new THREE.Mesh(new THREE.RingGeometry(R - 0.6, R + 0.6, 120), ringMat));
+    ringMesh.rotation.x = -Math.PI / 2; ringG.add(ringMesh);
+    var pts = [];
+    for (var i = 0; i < 24; i++) {                       // a tick every 15°, longer every 90°
+      var a = i * Math.PI / 12, len = i % 6 === 0 ? 5 : 2.5, sa = Math.sin(a), ca = Math.cos(a);
+      pts.push(new THREE.Vector3(sa * (R - len), 0, ca * (R - len)), new THREE.Vector3(sa * (R + 0.6), 0, ca * (R + 0.6)));
+    }
+    ringTicks = overlay(new THREE.LineSegments(new THREE.BufferGeometry().setFromPoints(pts), tickMat));
+    ringG.add(ringTicks);
+    ringR = R;
+  }
+  function ringFor(g) { return !!g && g.visible && !isWall(g) && !isRoof(g); }
+  function updateRing() {
+    var g = selected;
+    ringG.visible = ringFor(g) && mGroup.visible;
+    if (!ringG.visible) return;
+    var R = ringRadius(g); if (Math.abs(R - ringR) > 0.01) buildRing(R);
+    var b = boxOf(g), th = g.userData.r * Math.PI / 2;
+    ringG.position.set((b.x0 + b.x1) / 2, 0.4, (b.z0 + b.z1) / 2);
+    [knob, knobDot, knobHit].forEach(function (m) { m.position.x = Math.sin(th) * R; m.position.z = Math.cos(th) * R; });
+    spoke.scale.set(1, 1, 1); spoke.geometry.setFromPoints([new THREE.Vector3(), new THREE.Vector3(Math.sin(th) * (R - 4.2), 0, Math.cos(th) * (R - 4.2))]);
+  }
+  function overKnob() { return ringG.visible && ray.intersectObject(knobHit, false).length > 0; }
+  // place g at quarter-turn r with its footprint center at (cx, cz)
+  function turnedAt(g, r, cx, cz) {
+    var L = g.userData.lr, lx = (L.x0 + L.x1) / 2, lz = (L.z0 + L.z1) / 2, th = r * Math.PI / 2, cs = Math.cos(th), sn = Math.sin(th);
+    return { x: cx - (lx * cs + lz * sn), y: 0, z: cz - (-lx * sn + lz * cs), r: r };
+  }
   var panel = document.getElementById('sel');
   function updateLabels() {
     items.forEach(function (g) { if (g.userData.sprite) g.userData.sprite.visible = (showLabels && !g.userData.outlet) || g === selected; });
@@ -2168,7 +2255,8 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
                : w === 'back' ? ['Entry-door wall', 'Two-window wall'] : ['Entry-door wall', 'Two-window wall'];
       rows = [['On', W.name, true], ['Bottom edge', b.y0], ['Top edge', b.y1], [ends[0], b[ax + '0'] - W.lo], [ends[1], W.hi - b[ax + '1']]];
     } else {
-      rows = [['Entry-door wall', b.x0 + HW], ['Two-window wall', HW - b.x1], ['Double-door end', b.z0 + HL], ['Back wall', HL - b.z1]];
+      rows = [['Rotation', Math.round(selected.userData.r * 90) % 360 + '°', true],
+              ['Entry-door wall', b.x0 + HW], ['Two-window wall', HW - b.x1], ['Double-door end', b.z0 + HL], ['Back wall', HL - b.z1]];
     }
     document.getElementById('sel-clear-h').textContent = isWall(selected) || isRoof(selected) ? 'Position' : 'Clearance to walls';
     document.getElementById('sel-clear').innerHTML = rows.map(function (r) {
@@ -2856,8 +2944,8 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     ];
   }
   function captureViews() {
-    var out = [], bg = scene.background, pr = renderer.getPixelRatio(), sel = selBox.visible, rf = shed.layers.roofFrame.visible;
-    scene.background = new THREE.Color(0xffffff); selBox.visible = false; renderer.setPixelRatio(1);
+    var out = [], bg = scene.background, pr = renderer.getPixelRatio(), sel = selBox.visible, rf = shed.layers.roofFrame.visible, rg = ringG.visible;
+    scene.background = new THREE.Color(0xffffff); selBox.visible = false; ringG.visible = false; renderer.setPixelRatio(1);
     try {
       printViews().forEach(function (v) {
         var w = 1800, h = Math.round(w / v.v.aspect);
@@ -2870,7 +2958,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
         out.push({ title: v.t, caption: v.c, img: { data: bytes, w: w, h: h } });
       });
     } finally {
-      scene.background = bg; selBox.visible = sel; shed.layers.roofFrame.visible = rf; renderer.setPixelRatio(pr); resize();
+      scene.background = bg; selBox.visible = sel; ringG.visible = rg; shed.layers.roofFrame.visible = rf; renderer.setPixelRatio(pr); resize();
     }
     return out;
   }
@@ -3131,6 +3219,13 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     if (drag) return;
     aim(e);
+    if (overKnob()) {
+      e.stopPropagation(); e.preventDefault(); press = null;
+      var sg = selected, sb = boxOf(sg);
+      drag = { g: sg, id: e.pointerId, before: snap(), o: obstacles(sg), turn: true, cx: (sb.x0 + sb.x1) / 2, cz: (sb.z0 + sb.z1) / 2 };
+      controls.enabled = false; stage.style.cursor = 'grabbing';
+      return;
+    }
     var g = pick();
     press = { id: e.pointerId, x: e.clientX, y: e.clientY, g: g, moved: false };
     if (!g || g !== selected) return;
@@ -3158,7 +3253,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (!drag) {
       if (press && e.pointerId === press.id && Math.hypot(e.clientX - press.x, e.clientY - press.y) > CLICK_PX) press.moved = true;
       if (!press && e.pointerType === 'mouse' && e.target === renderer.domElement) {
-        aim(e); var h = pick();
+        aim(e); var h = overKnob() ? selected : pick();
         stage.style.cursor = h ? (h === selected ? 'grab' : 'pointer') : '';
       }
       return;
@@ -3166,6 +3261,20 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (e.pointerId !== drag.id) return;
     aim(e);
     var g = drag.g;
+    if (drag.turn) {
+      if (!ray.ray.intersectPlane(floorPlane, hitP)) return;
+      var dx = hitP.x - drag.cx, dz = hitP.z - drag.cz;
+      if (Math.hypot(dx, dz) < 3) return;
+      var deg = Math.round(Math.atan2(dx, dz) * 180 / Math.PI / 15) * 15;
+      var nr = Math.round((((deg % 360) + 360) % 360) / 90 * 6) / 6;
+      if (Math.abs(nr - g.userData.r) > 1e-6) {
+        var ts = turnedAt(g, nr, drag.cx, drag.cz);
+        if (!blocked(g, ts, drag.o)) apply(g, ts);
+        else if (!drag.warned) { drag.warned = true; toast('Something is in the way at that angle.', true); }
+      }
+      updatePanel();
+      return;
+    }
     if (isRoof(g)) {
       if (!ray.ray.intersectPlane(drag.plane, hitP)) return;
       var tx = Math.round(hitP.x + drag.ox), tz = Math.round(hitP.z + drag.oz - 48 + HL) - HL + 48;
@@ -3238,6 +3347,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     if (f) { setFinish('rock', !!f.rock); setFinish('pine', !!f.pine); } })();
   (function loop() {
     if (finish.pine && pineDirty) buildPine();
+    updateRing();
     controls.update();
     renderer.render(scene, camera);
     requestAnimationFrame(loop);
