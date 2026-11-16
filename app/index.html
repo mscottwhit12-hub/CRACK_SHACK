@@ -247,6 +247,7 @@
     <button type="button" data-view="inside" title="Stand inside; click again to turn around">Inside</button>
   </div>
   <div class="grp" role="group" aria-label="Show">
+    <button type="button" data-vis="floor" aria-pressed="true" title="Machines, benches and other floor pieces">Floor items</button>
     <button type="button" data-vis="elec" aria-pressed="false" title="Outlets, switches, floor boxes and the panel">Electrical</button>
     <button type="button" data-vis="lights" aria-pressed="true" title="Strip lights and focus lights">Lights</button>
     <button type="button" data-vis="wall" aria-pressed="true" title="TVs, boards, racks and other wall pieces">Wall items</button>
@@ -263,6 +264,7 @@
   <div class="grp" role="group" aria-label="Layout file">
     <button type="button" id="f-save" title="Save this layout">Save</button>
     <button type="button" id="f-open" title="Open a saved layout">Open</button>
+    <button type="button" id="f-print" title="Export a PDF of several views (Ctrl+P)">Print</button>
     <input type="file" id="layout-file" accept=".json,application/json" hidden>
     <details class="more" id="lib">
       <summary>Library</summary>
@@ -2344,13 +2346,13 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
   }
 
   /* ---- layers: Electrical (outlets, switches, floor boxes, panel), Lights, Wall items ---- */
-  var vis = { elec: false, lights: true, wall: true };
+  var vis = { floor: true, elec: false, lights: true, wall: true };
   function layerOf(g) {
     var u = g.userData;
     if (u.dev === 'light' || u.dev === 'spot') return 'lights';
     if (u.dev || u.machine.type === 'panel') return 'elec';
     if (u.mount === 'wall') return 'wall';
-    return null;
+    return 'floor';
   }
   function refreshVis() {
     items.forEach(function (g) { var l = layerOf(g); g.visible = !l || vis[l]; });
@@ -2821,6 +2823,123 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     document.getElementById('newc120').addEventListener('click', function () { var b0 = snap(); newCircuit('New 120V circuit', 120, 20); commit(b0); buildWiring(); });
     document.getElementById('newc240').addEventListener('click', function () { var b0 = snap(); newCircuit('New 240V circuit', 240, 20); commit(b0); buildWiring(); });
   }
+  /* ================= PDF export: several views of whatever is showing right now ================= */
+  function showingText() {
+    var on = [];
+    if (vis.floor) on.push('floor items'); if (vis.wall) on.push('wall items'); if (vis.lights) on.push('lights');
+    if (vis.elec) on.push('electrical'); if (wiringOn) on.push('wiring'); if (finish.rock) on.push('sheetrock'); if (finish.pine) on.push('pine walls');
+    return on.length ? 'Showing: ' + on.join(', ') : 'Shell only';
+  }
+  function printViews() {
+    var P = function (pos, tgt, fov) { var c = new THREE.PerspectiveCamera(fov || 50, 1.5, 2, 6000); c.position.set(pos[0], pos[1], pos[2]); c.lookAt(tgt[0], tgt[1], tgt[2]); return { cam: c, aspect: 1.5 }; };
+    // orthographic: looking along `dir` from the room's center line, so only the half of the room in front of that wall shows
+    function O(dir, hw, hh, yc, up, near, far) {
+      var a = hw / hh, c = new THREE.OrthographicCamera(-hw, hw, hh, -hh, near, far);
+      c.position.set(0, yc, 0);
+      if (up) c.up.set(up[0], up[1], up[2]);
+      c.lookAt(dir[0], yc + dir[1], dir[2]);
+      return { cam: c, aspect: a };
+    }
+    var plan = O([0, -1, 0], (shed.size.L + 40) / 2, Math.max((shed.size.W + 40) / 2, (shed.size.L + 40) / 3), 600, [1, 0, 0], 1, 700);
+    plan.plan = true;
+    var eh = 95, ey = 85;
+    return [
+      { t: 'Floor plan', c: 'Top down. Double doors at left, back wall at right, two-window wall at top, entry-door wall at bottom. Grid squares are 1 ft.', v: plan },
+      { t: '3D view from the double-door end', c: 'Outside, looking in past the double doors.', v: P([-330, 250, -420], [0, 45, 10]) },
+      { t: '3D view from the back corner', c: 'Outside, looking in from the back wall and the two-window side.', v: P([330, 250, 420], [0, 45, -10]) },
+      { t: 'Inside, facing the double doors', c: 'Standing near the back wall.', v: P([0, 66, 138], [0, 62, 60], 70) },
+      { t: 'Inside, facing the back wall', c: 'Standing near the double doors.', v: P([0, 66, -138], [0, 62, -60], 70) },
+      { t: 'Entry-door wall', c: 'Straight-on view from the middle of the shop; shows the half of the shop on this side.', v: O([-1, 0, 0], HL + 12, eh, ey, null, 0, HW + 20) },
+      { t: 'Two-window wall', c: 'Straight-on view from the middle of the shop; shows the half of the shop on this side.', v: O([1, 0, 0], HL + 12, eh, ey, null, 0, HW + 20) },
+      { t: 'Back wall', c: 'Straight-on view from the middle of the shop; shows the half of the shop on this side.', v: O([0, 0, 1], HW + 12, eh, ey, null, 0, HL + 20) },
+      { t: 'Double-door wall', c: 'Straight-on view from the middle of the shop; shows the half of the shop on this side.', v: O([0, 0, -1], HW + 12, eh, ey, null, 0, HL + 20) }
+    ];
+  }
+  function captureViews() {
+    var out = [], bg = scene.background, pr = renderer.getPixelRatio(), sel = selBox.visible, rf = shed.layers.roofFrame.visible;
+    scene.background = new THREE.Color(0xffffff); selBox.visible = false; renderer.setPixelRatio(1);
+    try {
+      printViews().forEach(function (v) {
+        var w = 1800, h = Math.round(w / v.v.aspect);
+        if (h > 1400) { h = 1400; w = Math.round(h * v.v.aspect); }
+        shed.layers.roofFrame.visible = v.v.plan ? false : rf;     // the plan looks through the roof
+        renderer.setSize(w, h, false);
+        renderer.render(scene, v.v.cam);
+        var url = renderer.domElement.toDataURL('image/jpeg', 0.9), bin = atob(url.split(',')[1]), bytes = new Uint8Array(bin.length);
+        for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        out.push({ title: v.t, caption: v.c, img: { data: bytes, w: w, h: h } });
+      });
+    } finally {
+      scene.background = bg; selBox.visible = sel; shed.layers.roofFrame.visible = rf; renderer.setPixelRatio(pr); resize();
+    }
+    return out;
+  }
+  // Minimal PDF writer: landscape letter pages, one JPEG each, built-in Helvetica. No libraries needed.
+  function buildPDF(pages, sub) {
+    var chunks = [], offs = [], pos = 0;
+    var WIN = { '′': 39, '″': 34, '’': 146, '‘': 145, '“': 147, '”': 148, '·': 183, '×': 215, '—': 151, '–': 150, '½': 189, '¼': 188, '¾': 190, '°': 176 };
+    function bytes(str) { var a = new Uint8Array(str.length); for (var i = 0; i < str.length; i++) a[i] = str.charCodeAt(i) & 255; return a; }
+    function put(x) { var b = typeof x === 'string' ? bytes(x) : x; chunks.push(b); pos += b.length; }
+    function txt(str) {                                   // PDF string literal in WinAnsi
+      var o = '(';
+      for (var i = 0; i < str.length; i++) {
+        var ch = str[i], c = WIN[ch] !== undefined ? WIN[ch] : str.charCodeAt(i);
+        if (c > 255) c = 63;
+        if (ch === '(' || ch === ')' || ch === '\\') o += '\\' + ch;
+        else if (c < 32 || c > 126) o += '\\' + ('00' + c.toString(8)).slice(-3);
+        else o += String.fromCharCode(c);
+      }
+      return o + ')';
+    }
+    function obj(n, body) { offs[n] = pos; put(n + ' 0 obj\n'); body(); put('\nendobj\n'); }
+    var PW = 792, PH = 612, N = pages.length, date = new Date().toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' });
+    put('%PDF-1.4\n%\xe2\xe3\xcf\xd3\n');
+    obj(1, function () { put('<< /Type /Catalog /Pages 2 0 R >>'); });
+    obj(2, function () { put('<< /Type /Pages /Count ' + N + ' /Kids [' + pages.map(function (p, i) { return (5 + 3 * i) + ' 0 R'; }).join(' ') + '] >>'); });
+    obj(3, function () { put('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'); });
+    obj(4, function () { put('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'); });
+    pages.forEach(function (p, i) {
+      var pn = 5 + 3 * i, bx = 36, by = 52, bw = PW - 72, bh = PH - 52 - 88;
+      var sc = Math.min(bw / p.img.w, bh / p.img.h), dw = p.img.w * sc, dh = p.img.h * sc, dx = bx + (bw - dw) / 2, dy = by + (bh - dh) / 2;
+      var cs = 'q ' + dw.toFixed(2) + ' 0 0 ' + dh.toFixed(2) + ' ' + dx.toFixed(2) + ' ' + dy.toFixed(2) + ' cm /Im' + i + ' Do Q\n' +
+        '0.75 0.79 0.78 RG 0.6 w ' + dx.toFixed(2) + ' ' + dy.toFixed(2) + ' ' + dw.toFixed(2) + ' ' + dh.toFixed(2) + ' re S\n' +
+        'BT /F2 20 Tf 0.11 0.15 0.15 rg 36 570 Td ' + txt(p.title) + ' Tj ET\n' +
+        'BT /F1 10 Tf 0.35 0.41 0.40 rg 36 553 Td ' + txt(p.caption) + ' Tj ET\n' +
+        'BT /F1 10 Tf 0.35 0.41 0.40 rg 36 539 Td ' + txt(sub) + ' Tj ET\n' +
+        'BT /F1 8 Tf 0.35 0.41 0.40 rg 36 30 Td ' + txt('Crack Shack · 15′ 5″ × 27′ 4″ shop · ' + date + ' · Planning drawing only, not for permit or construction') + ' Tj ET\n' +
+        'BT /F1 8 Tf 0.35 0.41 0.40 rg 708 30 Td ' + txt('Page ' + (i + 1) + ' of ' + N) + ' Tj ET\n';
+      obj(pn, function () {
+        put('<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PW + ' ' + PH + '] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> /XObject << /Im' + i + ' ' + (pn + 2) + ' 0 R >> >> /Contents ' + (pn + 1) + ' 0 R >>');
+      });
+      obj(pn + 1, function () { var b = bytes(cs); put('<< /Length ' + b.length + ' >>\nstream\n'); put(b); put('\nendstream'); });
+      obj(pn + 2, function () {
+        put('<< /Type /XObject /Subtype /Image /Width ' + p.img.w + ' /Height ' + p.img.h + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + p.img.data.length + ' >>\nstream\n');
+        put(p.img.data); put('\nendstream');
+      });
+    });
+    var xref = pos, n = 5 + 3 * N;
+    put('xref\n0 ' + n + '\n0000000000 65535 f \n');
+    for (var k = 1; k < n; k++) put(('0000000000' + offs[k]).slice(-10) + ' 00000 n \n');
+    put('trailer\n<< /Size ' + n + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
+    var out = new Uint8Array(pos), at = 0;
+    chunks.forEach(function (c) { out.set(c, at); at += c.length; });
+    return out;
+  }
+  var exporting = false;
+  function exportPDF() {
+    if (exporting) return;
+    exporting = true;
+    toast('Building the PDF…');
+    setTimeout(function () {
+      var pdf;
+      try { if (wiringOn) buildWiring(); pdf = buildPDF(captureViews(), showingText()); }
+      catch (e) { exporting = false; toast('Couldn\'t build the PDF.', true); return; }
+      saveText('shop-layout-' + new Date().toISOString().slice(0, 10) + '.pdf', pdf, 'application/pdf', 'PDF', '.pdf')
+        .then(function () { exporting = false; }, function () { exporting = false; });
+    }, 60);
+  }
+  document.getElementById('f-print').addEventListener('click', exportPDF);
+
   async function saveSchematic() {
     if (!wirePlan) buildWiring();
     renderer.render(scene, camera);
@@ -2956,6 +3075,7 @@ if (typeof module !== 'undefined') module.exports = { buildShed: buildShed, buil
     var mod = e.ctrlKey || e.metaKey, k = (e.key || '').toLowerCase();
     if (mod && k === 'z' && !e.shiftKey) { e.preventDefault(); if (!drag) undo(); return; }
     if (mod && (k === 'y' || (k === 'z' && e.shiftKey))) { e.preventDefault(); if (!drag) redo(); return; }
+    if (mod && k === 'p') { e.preventDefault(); if (!drag) exportPDF(); return; }
     if (mod) return;
     if (k === 'r' && selected && !drag) { rotateSel(); e.preventDefault(); }
     if ((e.key === 'Delete' || e.key === 'Backspace') && selected && !drag) { deleteSel(); e.preventDefault(); }
