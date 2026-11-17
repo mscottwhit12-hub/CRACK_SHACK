@@ -1,7 +1,7 @@
 {
   "name": "crack-shack",
   "productName": "Crack Shack",
-  "version": "1.16.0",
+  "version": "1.17.0",
   "description": "3D layout planner for the woodshop shed interior.",
   "main": "main.js",
   "license": "MIT",
@@ -24,7 +24,8 @@
       "output": "dist"
     },
     "win": {
-      "artifactName": "CrackShack-${version}-${arch}-${target}.${ext}"
+      "artifactName": "CrackShack-${version}-${arch}-${target}.${ext}",
+      "icon": "build/icon.png"
     },
     "portable": {
       "artifactName": "CrackShack-${version}-portable.exe"

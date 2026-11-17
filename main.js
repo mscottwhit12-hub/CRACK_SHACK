@@ -9,6 +9,7 @@ function createWindow() {
     minWidth: 800,
     minHeight: 600,
     title: 'Crack Shack',
+    icon: path.join(__dirname, 'app', 'icon.png'),
     backgroundColor: '#e6eae7',
     autoHideMenuBar: true,
     webPreferences: {

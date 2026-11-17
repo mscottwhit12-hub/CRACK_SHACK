@@ -92,3 +92,11 @@ Then start it with `docker compose up -d crack-shack` and open `http://<server>:
 - **File** has Save, Open, Print to PDF (or Ctrl+P) exports a 9-page PDF of whatever is showing: floor plan, two 3D views, two inside views and all four walls. Electrical (outlets, switches, floor boxes, panel) is hidden by default and turns on with Wiring.
 
 - **?** (or the ? key) lists every mouse and keyboard control, plus the shed's measurements.
+
+## More tools
+
+- **Measure** (or M): click two points; Shift locks to an axis. Points snap to the corners of parts. Esc or M clears them.
+- **Work zones** (Show → Guides): the clear floor each machine needs (infeed, outfeed, where you stand), red where something is in the way. The selected machine always shows its own zones, and the selection panel says what they run into.
+- **Duplicate** (Ctrl+D or the panel button), **double-click** to zoom to a piece, **Esc** cancels a drag. The camera view is remembered between visits.
+- **File → Restore earlier version** (server only): the server keeps the last 50 versions of the shared layout in `crack-shack-data/history/`.
+- The dot on **File** shows sync status: green saved, gray saving, red can't reach the server. The version is at the bottom of the **?** menu, and a banner offers a reload when the server has a newer one.
