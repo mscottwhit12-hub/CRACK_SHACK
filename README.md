@@ -100,3 +100,9 @@ Then start it with `docker compose up -d crack-shack` and open `http://<server>:
 - **Duplicate** (Ctrl+D or the panel button), **double-click** to zoom to a piece, **Esc** cancels a drag. The camera view is remembered between visits.
 - **File → Restore earlier version** (server only): the server keeps the last 50 versions of the shared layout in `crack-shack-data/history/`.
 - The dot on **File** shows sync status: green saved, gray saving, red can't reach the server. The version is at the bottom of the **?** menu, and a banner offers a reload when the server has a newer one.
+
+## Exterior, doors and walking
+
+- **Show → Exterior**: siding, trim and shingles modeled from the photos. It follows the Walls and Roof toggles and steps aside when you look straight down (Top view).
+- **Show → Doors open**: the double doors and the entry door swing outward.
+- With nothing selected, **WASD / arrows** walk the view and **Q / E** turn it (Shift for faster). With a piece selected they nudge and turn the piece, as before.
