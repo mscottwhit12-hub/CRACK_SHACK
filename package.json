@@ -1,0 +1,39 @@
+{
+  "name": "crack-shack",
+  "productName": "Crack Shack",
+  "version": "1.18.1",
+  "description": "3D layout planner for the woodshop shed interior.",
+  "main": "main.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win portable nsis --x64 --publish never"
+  },
+  "devDependencies": {
+    "electron": "33.4.11",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "com.mscottwhit12.crackshack",
+    "productName": "Crack Shack",
+    "files": [
+      "main.js",
+      "app/**/*"
+    ],
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "artifactName": "CrackShack-${version}-${arch}-${target}.${ext}",
+      "icon": "build/icon.png"
+    },
+    "portable": {
+      "artifactName": "CrackShack-${version}-portable.exe"
+    },
+    "nsis": {
+      "artifactName": "CrackShack-${version}-setup.exe",
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    }
+  }
+}
