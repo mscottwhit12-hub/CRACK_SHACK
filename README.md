@@ -89,7 +89,7 @@ Then start it with `docker compose up -d crack-shack` and open `http://<server>:
 - Sheetrock (sloped ceiling plus the flat ceiling at the collar ties) and Pine walls (horizontal 1×6 boards, staggered 8′ joints, cut around windows, doors, outlets and switches) are display toggles on the top bar.
 - **Show** holds every visibility toggle: pieces (floor, wall, lights, electrical), finishes (sheetrock, pine walls), the shed and yard, and guides (grid, labels, dimensions). Electrical turns on by itself with Wiring.
 - **Lighting** switches between even light, daytime, dusk/dawn and night, and turns the shop lights on or off. The day, dusk and night scenes use sun or moon through the windows, with shadows, plus real light from the strip and focus lights. Fixture specs (lumens, color temperature, beam angle, edge softness, uplight) are set in the Lighting menu and saved with the layout. Light levels are in real units, bounce light depends on the finishes, and exposure adapts like your eyes.
-- **File** has Save, Open, Print to PDF (or Ctrl+P) exports a 9-page PDF of whatever is showing: floor plan, two 3D views, two inside views and all four walls. Electrical (outlets, switches, floor boxes, panel) is hidden by default and turns on with Wiring.
+- **File** has Save, Open and Print to PDF (or Ctrl+P). The PDF shows whatever is turned on: floor plan, two 3D views, the outside (when Exterior is on), two inside views and all four walls. Electrical (outlets, switches, floor boxes, panel) is hidden by default and turns on with Wiring.
 
 - **?** (or the ? key) lists every mouse and keyboard control, plus the shed's measurements.
 
